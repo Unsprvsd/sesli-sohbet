@@ -3,8 +3,9 @@ import { TEXT_CHANNELS, VOICE_ROOMS } from '../config'
 import { useLobby } from '../lobby'
 import { useSameDeviceTabs } from '../sameDevice'
 import { keyLabel, useSetting } from '../settings'
-import { useVoice } from '../voice'
+import { canShareScreen, startScreenShare, useVoice } from '../voice'
 import Chat from './Chat'
+import ScreenView from './ScreenView'
 import Settings from './Settings'
 import UserName from './UserName'
 import VoicePanel from './VoicePanel'
@@ -105,7 +106,62 @@ export default function Lobby({ name, password, onLogout }: Props) {
     [updatePresence],
   )
 
+  // --- screen sharing ---------------------------------------------------
+  const [screen, setScreen] = useState<MediaStream | null>(null)
+  const [shareError, setShareError] = useState<string | null>(null)
+  const [watchUid, setWatchUid] = useState<string | null>(null)
+
+  const stopShare = useCallback(() => {
+    setScreen((s) => {
+      s?.getTracks().forEach((t) => t.stop())
+      return null
+    })
+  }, [])
+
+  const toggleShare = async () => {
+    if (screen) return stopShare()
+    setShareError(null)
+    try {
+      const s = await startScreenShare()
+      const video = s.getVideoTracks()[0]
+      if (video) {
+        video.contentHint = 'detail' // keep text sharp
+        // The browser's own "Stop sharing" bar ends the track.
+        video.addEventListener('ended', stopShare)
+      }
+      setScreen(s)
+    } catch (e) {
+      // NotAllowedError = user pressed Cancel; that's not an error to show.
+      if (!(e instanceof DOMException && e.name === 'NotAllowedError')) {
+        setShareError('Ekran paylaşımı başlatılamadı.')
+      }
+    }
+  }
+
+  // Leaving the voice room ends my share and my watching.
+  useEffect(() => {
+    if (!myRoom) {
+      stopShare()
+      setWatchUid(null)
+    }
+  }, [myRoom, stopShare])
+
+  // Stop sharing when this screen closes (logout).
+  const screenRef = useRef(screen)
+  screenRef.current = screen
+  useEffect(() => () => screenRef.current?.getTracks().forEach((t) => t.stop()), [])
+
+  // Stop watching if that person stopped sharing or left my room.
+  const watched = users.find((u) => u.id === watchUid)
+  useEffect(() => {
+    if (watchUid && (!watched || !watched.sharing || watched.voiceRoom !== myRoom)) {
+      setWatchUid(null)
+    }
+  }, [watchUid, watched, myRoom])
+
   const voice = useVoice({
+    screen,
+    watchUid,
     roomId: myRoom,
     password,
     selfId,
@@ -119,8 +175,8 @@ export default function Lobby({ name, password, onLogout }: Props) {
 
   // Share my room / mute / deafen state with everyone.
   useEffect(() => {
-    updatePresence({ voiceRoom: myRoom, muted: micMuted, deafened })
-  }, [myRoom, micMuted, deafened, updatePresence])
+    updatePresence({ voiceRoom: myRoom, muted: micMuted, deafened, sharing: !!screen })
+  }, [myRoom, micMuted, deafened, screen, updatePresence])
 
   // If the mic fails, leave the room again.
   useEffect(() => {
@@ -261,6 +317,15 @@ export default function Lobby({ name, password, onLogout }: Props) {
             >
               {deafened ? '🔕' : '🎧'}
             </button>
+            {myRoom && canShareScreen() && (
+              <button
+                className={`icon ${screen ? 'sharing' : ''}`}
+                onClick={toggleShare}
+                title={screen ? 'Paylaşımı durdur' : 'Ekranını paylaş'}
+              >
+                🖥️
+              </button>
+            )}
             <button className="icon" onClick={() => setShowSettings(true)} title="Ayarlar">
               ⚙️
             </button>
@@ -317,6 +382,27 @@ export default function Lobby({ name, password, onLogout }: Props) {
             onVolume={(n, v) => setVolumeByName((prev) => ({ ...prev, [n]: v }))}
             pttEnabled={pttEnabled}
             onPttHold={setPttDown}
+            watchUid={watchUid}
+            onWatch={setWatchUid}
+          />
+        )}
+
+        {shareError && <div className="warning">{shareError}</div>}
+
+        {screen && (
+          <div className="sharing-bar">
+            <span>🔴 Ekranını paylaşıyorsun</span>
+            <button onClick={stopShare}>Durdur</button>
+          </div>
+        )}
+
+        {watchUid && watched && (
+          <ScreenView
+            name={watched.name}
+            stream={voice.screens[watchUid] ?? null}
+            muted={deafened}
+            volume={volumesById[watchUid] ?? 1}
+            onClose={() => setWatchUid(null)}
           />
         )}
 

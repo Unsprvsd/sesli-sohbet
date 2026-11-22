@@ -6,6 +6,7 @@ export default function UserName({ user }: { user: OnlineUser }) {
       {user.name}
       {user.self && ' (sen)'}
       {user.deafened ? ' 🔕' : user.muted ? ' 🔇' : ''}
+      {user.sharing && user.voiceRoom ? ' 🖥️' : ''}
     </span>
   )
 }

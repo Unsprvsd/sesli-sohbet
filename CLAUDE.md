@@ -104,6 +104,11 @@ Discord/
   list. Unread badges count messages newer than login / last view.
   Volume = popup under the name in the voice bar. Same-PC two-tab warning
   (BroadcastChannel) to explain feedback ringing.
+- Screen sharing written (not yet tested/pushed): 🖥️ button in a voice
+  room, getDisplayMedia (tab audio yes, system audio excluded to avoid
+  echo). Opt-in watching: viewer sends `screen-watch` {uid, watch} in the
+  voice room; sharer addStream(screen, {target, metadata:{uid, kind:'screen'}})
+  only to watchers. Presence field `sharing`. Phones can watch, not share.
 - Rule: test big changes on localhost BEFORE pushing — friends use the live site.
 - Speaking state is self-reported through lobby presence (no peer-id mapping
   between lobby and voice rooms needed).

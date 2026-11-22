@@ -9,6 +9,7 @@ export type Presence = {
   muted: boolean
   deafened: boolean
   speaking: boolean
+  sharing: boolean
 }
 
 export type OnlineUser = Presence & { id: string; self: boolean }
@@ -34,6 +35,7 @@ const initialPresence = (name: string): Presence => ({
   muted: false,
   deafened: false,
   speaking: false,
+  sharing: false,
 })
 
 function isValidMessage(m: unknown): m is ChatMessage {

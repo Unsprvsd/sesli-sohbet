@@ -9,6 +9,8 @@ type Props = {
   onVolume: (name: string, value: number) => void
   pttEnabled: boolean
   onPttHold: (down: boolean) => void
+  watchUid: string | null
+  onWatch: (uid: string | null) => void
 }
 
 /** Compact bar above the chat while I'm in a voice room. */
@@ -50,23 +52,35 @@ export default function VoicePanel(p: Props) {
           const volume = p.volumes[u.name] ?? 100
           return (
             <li key={u.id} data-open={open}>
-              {u.self ? (
-                <div className="member">
-                  <UserName user={u} />
-                </div>
-              ) : (
-                <button
-                  className={`member clickable ${open ? 'open' : ''}`}
-                  onClick={() => setOpenId(open ? null : u.id)}
-                  aria-expanded={open}
-                  title="Ses seviyesini ayarla"
-                >
-                  <UserName user={u} />
-                  <span className="member-vol">
-                    {volume !== 100 && `${volume}%`} ▾
-                  </span>
-                </button>
-              )}
+              <div className="member-row">
+                {u.self ? (
+                  <div className="member">
+                    <UserName user={u} />
+                    {u.sharing && <span className="live">🔴 CANLI</span>}
+                  </div>
+                ) : (
+                  <button
+                    className={`member clickable ${open ? 'open' : ''}`}
+                    onClick={() => setOpenId(open ? null : u.id)}
+                    aria-expanded={open}
+                    title="Ses seviyesini ayarla"
+                  >
+                    <UserName user={u} />
+                    <span className="member-vol">
+                      {u.sharing && <span className="live">🔴 CANLI</span>}
+                      {volume !== 100 && ` ${volume}%`} ▾
+                    </span>
+                  </button>
+                )}
+                {u.sharing && !u.self && (
+                  <button
+                    className={`watch ${p.watchUid === u.id ? 'on' : ''}`}
+                    onClick={() => p.onWatch(p.watchUid === u.id ? null : u.id)}
+                  >
+                    {p.watchUid === u.id ? 'Bırak' : 'İzle'}
+                  </button>
+                )}
+              </div>
 
               {open && (
                 <div className="volume-popup" role="dialog" aria-label={`${u.name} ses seviyesi`}>
