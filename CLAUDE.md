@@ -93,7 +93,13 @@ Discord/
   live at https://unsprvsd.github.io/sesli-sohbet/ . Every push to `main`
   rebuilds and redeploys via `.github/workflows/deploy.yml`.
   Tested with friends over the internet (2026-11-22): works, no TURN needed so far.
-- Next: phase 7 (polish) and "Later" features — user picks the order.
+- Phase 7 written (not yet tested/pushed): per-person volume (by name,
+  0–100%, via stream metadata `{uid}` = lobby userId), text chat (lobby
+  action `chat`, history sent to newcomers, lost when everyone leaves),
+  push-to-talk (key + hold button; only works while tab is focused),
+  auto-reconnect (online event → rejoin lobby; voice watchdog rejoins with
+  15s/30s/60s backoff), mic choice (⚙️ settings, localStorage).
+- Rule: test big changes on localhost BEFORE pushing — friends use the live site.
 - Speaking state is self-reported through lobby presence (no peer-id mapping
   between lobby and voice rooms needed).
 

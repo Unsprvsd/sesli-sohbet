@@ -5,31 +5,45 @@ import { APP_ID } from './config'
 type Options = {
   roomId: string | null
   password: string
-  micMuted: boolean
+  /** My lobby user id; sent with my audio so others know whose voice it is. */
+  selfId: string
+  /** true = my mic is sending sound (not muted, push-to-talk held, ...). */
+  transmit: boolean
   deafened: boolean
+  /** Volume per lobby user id, 0..1. Missing = 1. */
+  volumes: Record<string, number>
+  /** Microphone deviceId, '' = system default. */
+  deviceId: string
+  /** Changing this leaves and joins the voice room again. */
+  epoch: number
   onSpeaking: (speaking: boolean) => void
 }
+
+type RemoteAudio = { audio: HTMLAudioElement; uid: string }
 
 /**
  * While roomId is set: takes the microphone, joins the voice room and plays
  * everyone else's audio. Leaves and releases the mic when roomId becomes null.
  */
-export function useVoice({ roomId, password, micMuted, deafened, onSpeaking }: Options) {
+export function useVoice(opts: Options) {
+  const { roomId, password, selfId, transmit, deafened, volumes, deviceId, epoch } = opts
   const [error, setError] = useState<string | null>(null)
   const [peerCount, setPeerCount] = useState(0)
   const [ready, setReady] = useState(false)
 
   const streamRef = useRef<MediaStream | null>(null)
-  const audiosRef = useRef(new Map<string, HTMLAudioElement>())
-  const micMutedRef = useRef(micMuted)
+  const remotesRef = useRef(new Map<string, RemoteAudio>())
+  const transmitRef = useRef(transmit)
   const deafenedRef = useRef(deafened)
-  const onSpeakingRef = useRef(onSpeaking)
-  micMutedRef.current = micMuted
+  const volumesRef = useRef(volumes)
+  const onSpeakingRef = useRef(opts.onSpeaking)
+  transmitRef.current = transmit
   deafenedRef.current = deafened
-  onSpeakingRef.current = onSpeaking
+  volumesRef.current = volumes
+  onSpeakingRef.current = opts.onSpeaking
 
   useEffect(() => {
-    if (!roomId) return
+    if (!roomId || !selfId) return
 
     let cancelled = false
     let cleanup = () => {}
@@ -39,10 +53,7 @@ export function useVoice({ roomId, password, micMuted, deafened, onSpeaking }: O
     const start = async () => {
       let stream: MediaStream
       try {
-        stream = await navigator.mediaDevices.getUserMedia({
-          audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
-          video: false,
-        })
+        stream = await getMic(deviceId)
       } catch (e) {
         if (!cancelled) setError(micErrorText(e))
         return
@@ -53,25 +64,26 @@ export function useVoice({ roomId, password, micMuted, deafened, onSpeaking }: O
       }
 
       streamRef.current = stream
-      setTrackEnabled(stream, !micMutedRef.current)
+      setTrackEnabled(stream, transmitRef.current)
 
       const room = joinRoom({ appId: APP_ID, password, identity: 'none' }, `voice-${roomId}`)
-      const audios = audiosRef.current
+      const remotes = remotesRef.current
+      const meta = { uid: selfId }
       const updateCount = () => setPeerCount(Object.keys(room.getPeers()).length)
 
       const removeAudio = (peerId: string) => {
-        const audio = audios.get(peerId)
-        if (audio) {
-          audio.pause()
-          audio.srcObject = null
-          audios.delete(peerId)
+        const r = remotes.get(peerId)
+        if (r) {
+          r.audio.pause()
+          r.audio.srcObject = null
+          remotes.delete(peerId)
         }
       }
 
       const offs = [
         // Send my mic to anyone who joins after me.
         room.onPeerJoin(({ peerId }) => {
-          room.addStream(stream, { target: peerId }).catch(() => {})
+          room.addStream(stream, { target: peerId, metadata: meta }).catch(() => {})
           updateCount()
         }),
         room.onPeerLeave(({ peerId }) => {
@@ -79,18 +91,25 @@ export function useVoice({ roomId, password, micMuted, deafened, onSpeaking }: O
           updateCount()
         }),
         // Play other people's voices.
-        room.onPeerStream((remote, { peerId }) => {
-          const audio = audios.get(peerId) ?? new Audio()
+        room.onPeerStream((remote, { peerId, metadata }) => {
+          const uid =
+            metadata && typeof metadata === 'object' && !Array.isArray(metadata) &&
+            typeof metadata.uid === 'string'
+              ? metadata.uid
+              : ''
+          const audio = remotes.get(peerId)?.audio ?? new Audio()
           audio.autoplay = true
           audio.srcObject = remote
           audio.muted = deafenedRef.current
+          audio.volume = volumesRef.current[uid] ?? 1
           audio.play().catch(() => {})
-          audios.set(peerId, audio)
+          remotes.set(peerId, { audio, uid })
+          updateCount()
         }),
       ]
 
       // Send my mic to everyone already in the room.
-      room.addStream(stream).catch(() => {})
+      room.addStream(stream, { metadata: meta }).catch(() => {})
       room.ready.then(() => !cancelled && setReady(true))
 
       const stopDetection = startSpeakingDetection(stream, (s) => onSpeakingRef.current(s))
@@ -99,7 +118,7 @@ export function useVoice({ roomId, password, micMuted, deafened, onSpeaking }: O
         offs.forEach((off) => off())
         stopDetection()
         onSpeakingRef.current(false)
-        for (const peerId of [...audios.keys()]) removeAudio(peerId)
+        for (const peerId of [...remotes.keys()]) removeAudio(peerId)
         stream.getTracks().forEach((t) => t.stop())
         streamRef.current = null
         setPeerCount(0)
@@ -114,19 +133,40 @@ export function useVoice({ roomId, password, micMuted, deafened, onSpeaking }: O
       cancelled = true
       cleanup()
     }
-  }, [roomId, password])
+  }, [roomId, password, selfId, deviceId, epoch])
 
-  // Mute / unmute my microphone.
+  // Mic on/off (mute, deafen, push-to-talk).
   useEffect(() => {
-    if (streamRef.current) setTrackEnabled(streamRef.current, !micMuted)
-  }, [micMuted])
+    if (streamRef.current) setTrackEnabled(streamRef.current, transmit)
+  }, [transmit])
 
   // Deafen: silence everyone else.
   useEffect(() => {
-    for (const audio of audiosRef.current.values()) audio.muted = deafened
+    for (const r of remotesRef.current.values()) r.audio.muted = deafened
   }, [deafened])
 
+  // Per-person volume.
+  useEffect(() => {
+    for (const r of remotesRef.current.values()) r.audio.volume = volumes[r.uid] ?? 1
+  }, [volumes])
+
   return { error, peerCount, ready }
+}
+
+async function getMic(deviceId: string): Promise<MediaStream> {
+  const base = { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+  try {
+    return await navigator.mediaDevices.getUserMedia({
+      audio: deviceId ? { ...base, deviceId: { exact: deviceId } } : base,
+      video: false,
+    })
+  } catch (e) {
+    // Chosen mic was unplugged → fall back to the default one.
+    if (deviceId && e instanceof DOMException && e.name === 'OverconstrainedError') {
+      return navigator.mediaDevices.getUserMedia({ audio: base, video: false })
+    }
+    throw e
+  }
 }
 
 function setTrackEnabled(stream: MediaStream, enabled: boolean) {
