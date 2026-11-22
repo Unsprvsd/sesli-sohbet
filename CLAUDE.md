@@ -87,8 +87,12 @@ Discord/
 ## Progress
 
 - Phase 1 done. Phase 2 done (tested by user: two tabs see each other).
-- Phases 3–5 written (voice, mute, deafen, speaking ring, room members) —
-  waiting for user test.
+- Phases 3–5 done (voice, mute, deafen, speaking ring, room members);
+  user tested on localhost with two tabs.
+- Phase 6: published. Repo https://github.com/Unsprvsd/sesli-sohbet (public),
+  live at https://unsprvsd.github.io/sesli-sohbet/ . Every push to `main`
+  rebuilds and redeploys via `.github/workflows/deploy.yml`.
+  Waiting for a real test with friends on different networks.
 - Speaking state is self-reported through lobby presence (no peer-id mapping
   between lobby and voice rooms needed).
 
