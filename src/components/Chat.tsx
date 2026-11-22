@@ -47,6 +47,7 @@ export default function Chat({ roomName, messages, myName, onSend }: Props) {
 
   return (
     <section className="chat">
+      <header className="chat-head"># {roomName}</header>
       <div className="chat-list" ref={listRef}>
         {messages.length === 0 && (
           <p className="hint">Henüz mesaj yok. İlk mesajı sen yaz!</p>

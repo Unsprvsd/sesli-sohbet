@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { VOICE_ROOMS } from '../config'
+import { TEXT_CHANNELS, VOICE_ROOMS } from '../config'
 import { useLobby } from '../lobby'
 import { useSameDeviceTabs } from '../sameDevice'
 import { keyLabel, useSetting } from '../settings'
 import { useVoice } from '../voice'
-import RoomPanel from './RoomPanel'
+import Chat from './Chat'
 import Settings from './Settings'
 import UserName from './UserName'
+import VoicePanel from './VoicePanel'
 
 type Props = {
   name: string
@@ -151,11 +152,35 @@ export default function Lobby({ name, password, onLogout }: Props) {
 
   // --- render -----------------------------------------------------------
   const roomName = VOICE_ROOMS.find((r) => r.id === myRoom)?.name ?? ''
-  const roomMessages = useMemo(
-    () => messages.filter((m) => m.room === myRoom),
-    [messages, myRoom],
-  )
   const roomMembers = users.filter((u) => u.voiceRoom === myRoom)
+
+  // --- text channels ----------------------------------------------------
+  const [savedChannel, setChannel] = useSetting<string>('textChannel', TEXT_CHANNELS[0].id)
+  const channel = TEXT_CHANNELS.find((c) => c.id === savedChannel) ?? TEXT_CHANNELS[0]
+  const channelMessages = useMemo(
+    () => messages.filter((m) => m.room === channel.id),
+    [messages, channel.id],
+  )
+
+  // Unread counter: messages newer than when I last looked at the channel.
+  // Starts at login time, so history received on joining is not "unread".
+  const [lastSeen, setLastSeen] = useState<Record<string, number>>(() => {
+    const now = Date.now()
+    return Object.fromEntries(TEXT_CHANNELS.map((c) => [c.id, now]))
+  })
+  // The channel I'm looking at is always "seen".
+  useEffect(() => {
+    setLastSeen((prev) => ({ ...prev, [channel.id]: Date.now() }))
+  }, [channel.id, channelMessages.length])
+  const unread = useMemo(() => {
+    const out: Record<string, number> = {}
+    for (const m of messages) {
+      if (m.name !== name && m.ts > (lastSeen[m.room] ?? 0)) {
+        out[m.room] = (out[m.room] ?? 0) + 1
+      }
+    }
+    return out
+  }, [messages, lastSeen, name])
   const someoneMissing = !!myRoom && voice.ready && voice.peerCount < expectedPeers
   const sameDeviceTab = useSameDeviceTabs(myRoom)
 
@@ -189,6 +214,22 @@ export default function Lobby({ name, password, onLogout }: Props) {
                 ))}
               </ul>
             </div>
+          )
+        })}
+
+        <h2>Yazı kanalları</h2>
+        {TEXT_CHANNELS.map((c) => {
+          const active = c.id === channel.id
+          const count = active ? 0 : (unread[c.id] ?? 0)
+          return (
+            <button
+              key={c.id}
+              className={`channel ${active ? 'active' : ''} ${count ? 'unread' : ''}`}
+              onClick={() => setChannel(c.id)}
+            >
+              <span># {c.name}</span>
+              {count > 0 && <span className="badge">{count > 99 ? '99+' : count}</span>}
+            </button>
           )
         })}
 
@@ -268,35 +309,38 @@ export default function Lobby({ name, password, onLogout }: Props) {
           </div>
         )}
 
-        {myRoom ? (
-          <RoomPanel
+        {myRoom && (
+          <VoicePanel
             roomName={roomName}
             members={roomMembers}
             volumes={volumeByName}
             onVolume={(n, v) => setVolumeByName((prev) => ({ ...prev, [n]: v }))}
-            messages={roomMessages}
-            myName={name}
-            onSend={(text) => sendChat(myRoom, text)}
             pttEnabled={pttEnabled}
             onPttHold={setPttDown}
           />
-        ) : (
-          <>
-            <h2>Çevrimiçi — {users.length}</h2>
-            <ul className="online">
-              {users.map((u) => (
-                <li key={u.id}>
-                  <span className="dot online" /> <UserName user={u} />
-                  {u.voiceRoom && (
-                    <small> · {VOICE_ROOMS.find((r) => r.id === u.voiceRoom)?.name}</small>
-                  )}
-                </li>
-              ))}
-            </ul>
-            <p className="hint">Katılmak için soldan bir odaya tıkla.</p>
-          </>
         )}
+
+        <Chat
+          roomName={channel.name}
+          messages={channelMessages}
+          myName={name}
+          onSend={(text) => sendChat(channel.id, text)}
+        />
       </main>
+
+      <aside className="people">
+        <h2>Çevrimiçi — {users.length}</h2>
+        <ul className="online">
+          {users.map((u) => (
+            <li key={u.id}>
+              <span className="dot online" /> <UserName user={u} />
+              {u.voiceRoom && (
+                <small> · 🔊 {VOICE_ROOMS.find((r) => r.id === u.voiceRoom)?.name}</small>
+              )}
+            </li>
+          ))}
+        </ul>
+      </aside>
 
       {showSettings && (
         <Settings

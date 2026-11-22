@@ -99,6 +99,11 @@ Discord/
   push-to-talk (key + hold button; only works while tab is focused),
   auto-reconnect (online event → rejoin lobby; voice watchdog rejoins with
   15s/30s/60s backoff), mic choice (⚙️ settings, localStorage).
+- Text channels (#genel, #oyun, #linkler; ids `txt-*` in config.ts) replace
+  the old per-voice-room chat. Layout: sidebar | voice bar + chat | online
+  list. Unread badges count messages newer than login / last view.
+  Volume = popup under the name in the voice bar. Same-PC two-tab warning
+  (BroadcastChannel) to explain feedback ringing.
 - Rule: test big changes on localhost BEFORE pushing — friends use the live site.
 - Speaking state is self-reported through lobby presence (no peer-id mapping
   between lobby and voice rooms needed).

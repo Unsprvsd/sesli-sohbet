@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import type { ChatMessage, OnlineUser } from '../lobby'
-import Chat from './Chat'
+import type { OnlineUser } from '../lobby'
 import UserName from './UserName'
 
 type Props = {
@@ -8,14 +7,12 @@ type Props = {
   members: OnlineUser[]
   volumes: Record<string, number> // by user name, 0..100
   onVolume: (name: string, value: number) => void
-  messages: ChatMessage[]
-  myName: string
-  onSend: (text: string) => void
   pttEnabled: boolean
   onPttHold: (down: boolean) => void
 }
 
-export default function RoomPanel(p: Props) {
+/** Compact bar above the chat while I'm in a voice room. */
+export default function VoicePanel(p: Props) {
   // Which member's volume popup is open (user id), or null.
   const [openId, setOpenId] = useState<string | null>(null)
   const listRef = useRef<HTMLUListElement>(null)
@@ -44,8 +41,8 @@ export default function RoomPanel(p: Props) {
   }, [openId, p.members])
 
   return (
-    <div className="room-panel">
-      <h2>🔊 {p.roomName}</h2>
+    <section className="voice-panel">
+      <h3>🔊 {p.roomName}</h3>
 
       <ul className="members" ref={listRef}>
         {p.members.map((u) => {
@@ -113,8 +110,6 @@ export default function RoomPanel(p: Props) {
           Konuşmak için basılı tut
         </button>
       )}
-
-      <Chat roomName={p.roomName} messages={p.messages} myName={p.myName} onSend={p.onSend} />
-    </div>
+    </section>
   )
 }

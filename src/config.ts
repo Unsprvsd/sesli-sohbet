@@ -8,3 +8,10 @@ export const VOICE_ROOMS = [
   { id: 'oyun', name: 'Oyun' },
   { id: 'muzik', name: 'Müzik' },
 ] as const
+
+// Fixed list of text channels (separate from voice rooms).
+export const TEXT_CHANNELS = [
+  { id: 'txt-genel', name: 'genel' },
+  { id: 'txt-oyun', name: 'oyun' },
+  { id: 'txt-linkler', name: 'linkler' },
+] as const
