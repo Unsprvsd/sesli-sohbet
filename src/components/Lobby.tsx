@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { VOICE_ROOMS } from '../config'
 import { useLobby } from '../lobby'
+import { useSameDeviceTabs } from '../sameDevice'
 import { keyLabel, useSetting } from '../settings'
 import { useVoice } from '../voice'
 import RoomPanel from './RoomPanel'
@@ -156,6 +157,7 @@ export default function Lobby({ name, password, onLogout }: Props) {
   )
   const roomMembers = users.filter((u) => u.voiceRoom === myRoom)
   const someoneMissing = !!myRoom && voice.ready && voice.peerCount < expectedPeers
+  const sameDeviceTab = useSameDeviceTabs(myRoom)
 
   return (
     <div className="layout">
@@ -254,6 +256,12 @@ export default function Lobby({ name, password, onLogout }: Props) {
         )}
         {warning && <div className="warning">{warning}</div>}
         {voice.error && <div className="warning">{voice.error}</div>}
+        {sameDeviceTab && !deafened && (
+          <div className="warning">
+            Bu bilgisayarda başka bir sekme de aynı odada. Hoparlör kullanıyorsan çınlama
+            (geri besleme) olur: kulaklık tak ya da bir sekmede 🎧 ile sesi kapat.
+          </div>
+        )}
         {someoneMissing && (
           <div className="warning">
             Odadaki herkesle ses bağlantısı kurulamadı. Otomatik tekrar deneniyor…
