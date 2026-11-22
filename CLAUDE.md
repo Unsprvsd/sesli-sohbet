@@ -92,7 +92,8 @@ Discord/
 - Phase 6: published. Repo https://github.com/Unsprvsd/sesli-sohbet (public),
   live at https://unsprvsd.github.io/sesli-sohbet/ . Every push to `main`
   rebuilds and redeploys via `.github/workflows/deploy.yml`.
-  Waiting for a real test with friends on different networks.
+  Tested with friends over the internet (2026-11-22): works, no TURN needed so far.
+- Next: phase 7 (polish) and "Later" features — user picks the order.
 - Speaking state is self-reported through lobby presence (no peer-id mapping
   between lobby and voice rooms needed).
 
