@@ -299,32 +299,88 @@ button {
 }
 
 .members li {
+  position: relative;
+}
+
+.member {
+  width: 100%;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
   background: var(--panel);
+  border: none;
   border-radius: 6px;
-  padding: 6px 10px;
-  flex-wrap: wrap;
+  padding: 8px 10px;
+  color: var(--text);
+  text-align: left;
 }
 
-.volume {
+.member.clickable:hover,
+.member.open {
+  background: #3a3c42;
+}
+
+.member-vol {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+/* Volume popup: opens right under the user's name. */
+.volume-popup {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 5;
+  width: min(280px, 100%);
+  background: var(--bg);
+  border-radius: 6px;
+  padding: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
   display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 13px;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.volume-popup-head {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  text-transform: uppercase;
   color: var(--muted);
 }
 
-.volume input {
-  width: 120px;
+.volume-popup-head b {
+  color: var(--text);
+}
+
+.volume-popup input {
+  width: 100%;
   accent-color: var(--accent);
 }
 
-.volume span {
-  width: 38px;
-  text-align: right;
+.volume-popup-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.volume-popup-actions button {
+  flex: 1;
+  background: var(--panel-2);
+  color: var(--text);
+  border: none;
+  border-radius: 4px;
+  padding: 6px;
+  font-size: 13px;
+}
+
+.volume-popup-actions button:hover:not(:disabled) {
+  background: #3a3c42;
+}
+
+.volume-popup-actions button:disabled {
+  opacity: 0.5;
+  cursor: default;
 }
 
 .ptt-button {
