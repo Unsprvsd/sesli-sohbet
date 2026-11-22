@@ -119,6 +119,16 @@ No TURN server. Some users (often on mobile data or strict networks) may fail
 to connect directly. Fix if needed: add a free TURN service (with usage
 limits) to Trystero's `rtcConfig`, or switch to plan B (Tailscale).
 
+## Project notes (Obsidian vault)
+
+Private notes live in `vault/` (gitignored — never pushed). Start a session by
+reading `vault/Todo.md`. At the end of a session:
+- add `vault/Log/YYYY-MM-DD.md` (what was done, what's next)
+- add a note in `vault/Decisions/` for each new design choice (numbered, see
+  `vault/Templates/Decision template.md`)
+- add a note in `vault/Bugs/` for each bug or problem (see Bug template)
+- update `vault/Todo.md`, `vault/Features.md` and the links in `vault/Home.md`
+
 ## Rules for Claude in this project
 
 - User is on Windows 11 with PowerShell. Use PowerShell syntax, not bash.
