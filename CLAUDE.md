@@ -93,7 +93,7 @@ Discord/
   live at https://unsprvsd.github.io/sesli-sohbet/ . Every push to `main`
   rebuilds and redeploys via `.github/workflows/deploy.yml`.
   Tested with friends over the internet (2026-11-22): works, no TURN needed so far.
-- Phase 7 written (not yet tested/pushed): per-person volume (by name,
+- Phase 7 + text channels tested by user and LIVE (2026-11-22): per-person volume (by name,
   0–100%, via stream metadata `{uid}` = lobby userId), text chat (lobby
   action `chat`, history sent to newcomers, lost when everyone leaves),
   push-to-talk (key + hold button; only works while tab is focused),
