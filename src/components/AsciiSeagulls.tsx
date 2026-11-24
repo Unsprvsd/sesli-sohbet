@@ -108,14 +108,18 @@ export default function AsciiSeagulls({ selfId, isLeader, sendGull, onGull, name
       off.height = rows
     }
 
-    // click on a gull (clicks on buttons, inputs etc. do not count)
+    // Click on a gull. The gull wins over whatever is under it (buttons, inputs…):
+    // we listen first (capture phase) and stop the event, so the button
+    // underneath gets neither the press nor the click that follows.
+    let blockClickUntil = 0
     const onPointer = (e: PointerEvent) => {
       if (reduceMotion) return // gulls are not drawn then
-      const target = e.target as Element | null
-      if (target?.closest('button, a, input, textarea, select, label, [role="button"]')) return
       const w = window.innerWidth, h = window.innerHeight
       const g = flock.hitTest(e.clientX, e.clientY, { w, h })
       if (!g) return
+      e.preventDefault() // no focus / text selection on what is underneath
+      e.stopPropagation()
+      blockClickUntil = performance.now() + 700
       const L = live.current
       if (L.isLeader) {
         L.sendGull({ t: 'caught', id: g.id, uid: L.selfId, x: g.x, y: g.y })
@@ -126,6 +130,13 @@ export default function AsciiSeagulls({ selfId, isLeader, sendGull, onGull, name
         myWavesRef.current.set(g.id, flock.addWave(g.x, g.y, ''))
         L.sendGull({ t: 'hit', id: g.id, x: g.x, y: g.y })
       }
+    }
+    // the click that follows a gull catch must not reach the button underneath
+    const onClick = (e: MouseEvent) => {
+      if (performance.now() > blockClickUntil) return
+      blockClickUntil = 0
+      e.preventDefault()
+      e.stopPropagation()
     }
 
     const ramp = R.ramp
@@ -234,12 +245,15 @@ export default function AsciiSeagulls({ selfId, isLeader, sendGull, onGull, name
 
     resize()
     window.addEventListener('resize', resize)
-    window.addEventListener('pointerdown', onPointer)
+    // capture: true -> we see the press before any button does
+    window.addEventListener('pointerdown', onPointer, { capture: true })
+    window.addEventListener('click', onClick, { capture: true })
     raf = requestAnimationFrame(loop)
     return () => {
       cancelAnimationFrame(raf)
       window.removeEventListener('resize', resize)
-      window.removeEventListener('pointerdown', onPointer)
+      window.removeEventListener('pointerdown', onPointer, { capture: true })
+      window.removeEventListener('click', onClick, { capture: true })
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [flock])
