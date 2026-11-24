@@ -30,7 +30,7 @@ import Chat from './Chat'
 import ScreenView from './ScreenView'
 import Settings from './Settings'
 import UserName from './UserName'
-import VoicePanel from './VoicePanel'
+import RoomMembers from './RoomMembers'
 
 type Props = {
   name: string
@@ -575,13 +575,14 @@ export default function Lobby({ name, serverName, srv, password, onLogout, onFai
                 </button>
                 {adminButtons('voice', room)}
               </div>
-              <ul>
-                {members.map((u) => (
-                  <li key={u.id}>
-                    <UserName user={u} meter />
-                  </li>
-                ))}
-              </ul>
+              <RoomMembers
+                members={members}
+                inside={inside}
+                volumes={volumeByName}
+                onVolume={(n, v) => setVolumeByName((prev) => ({ ...prev, [n]: v }))}
+                watchUid={watchUid}
+                onWatch={setWatchUid}
+              />
             </div>
           )
         })}
@@ -661,6 +662,18 @@ export default function Lobby({ name, serverName, srv, password, onLogout, onFai
             <small className="muted">connected to {voice.peerCount}</small>
           )}
           {pttEnabled && myRoom && (
+            <button
+              className="ptt-button"
+              onPointerDown={() => setPttDown(true)}
+              onPointerUp={() => setPttDown(false)}
+              onPointerLeave={() => setPttDown(false)}
+              onPointerCancel={() => setPttDown(false)}
+              onContextMenu={(e) => e.preventDefault()}
+            >
+              Hold to talk
+            </button>
+          )}
+          {pttEnabled && myRoom && (
             <small className={`ptt-state ${transmit ? 'on' : ''}`}>
               {micMuted
                 ? 'push-to-talk: mic is muted'
@@ -694,19 +707,6 @@ export default function Lobby({ name, serverName, srv, password, onLogout, onFai
             <div className="warning">
               Could not connect voice to everyone in the room. Retrying automatically…
             </div>
-          )}
-
-          {myRoom && (
-            <VoicePanel
-              roomName={roomName}
-              members={roomMembers}
-              volumes={volumeByName}
-              onVolume={(n, v) => setVolumeByName((prev) => ({ ...prev, [n]: v }))}
-              pttEnabled={pttEnabled}
-              onPttHold={setPttDown}
-              watchUid={watchUid}
-              onWatch={setWatchUid}
-            />
           )}
 
           {shareError && <div className="warning">{shareError}</div>}

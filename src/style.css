@@ -168,8 +168,7 @@ button:disabled {
   vertical-align: -1px;
 }
 
-.room-name .label,
-.voice-panel h3 {
+.room-name .label {
   display: inline-flex;
   align-items: center;
   gap: 7px;
@@ -813,70 +812,59 @@ pre.logo {
   white-space: nowrap;
 }
 
-/* --- voice panel --------------------------------------------------------- */
+/* --- people in a voice room (sidebar); click a person -> volume popup ----- */
 
-.voice-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding-bottom: 14px;
-  border-bottom: 1px solid var(--line);
-}
-
-.voice-panel h3 {
-  margin: 0;
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--strong);
-}
-
-.members {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.members li {
+.room-members li {
   position: relative;
 }
 
-.member-row {
-  display: flex;
-  gap: 4px;
-}
-
-.member {
+.rm-row {
   display: flex;
   align-items: center;
-  gap: 10px;
-  background: none;
-  border: 1px solid var(--line);
-  padding: 5px 10px;
-  color: var(--text);
-  text-align: left;
-  font-size: 13px;
+  gap: 6px;
 }
 
-.member.clickable:hover,
-.member.open {
-  border-color: var(--line-2);
+.rm-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+  background: none;
+  border: none;
+  padding: 1px 4px;
+  margin-left: -4px;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+}
+
+.rm-name.clickable {
+  cursor: pointer;
+}
+
+.rm-name.clickable:hover,
+.rm-name.open {
   background: var(--hover);
 }
 
-.member-vol {
+.rm-vol {
+  margin-left: auto;
   color: var(--muted);
   font-size: 11px;
+}
+
+.room-members .volume-popup {
+  width: auto;
+  right: 0;
 }
 
 .watch {
   background: none;
   color: var(--text);
   border: 1px solid var(--line-2);
-  padding: 0 10px;
-  font-size: 12px;
+  padding: 0 8px;
+  font-size: 11px;
 }
 
 .watch:hover,
