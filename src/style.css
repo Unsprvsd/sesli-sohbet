@@ -273,6 +273,21 @@ pre.logo {
   gap: 16px;
 }
 
+/* animated ASCII background behind the login form */
+.ascii-bg {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.login {
+  position: relative;
+  z-index: 1;
+}
+
 .login pre.logo,
 .joinlog pre.logo {
   margin-bottom: 12px;

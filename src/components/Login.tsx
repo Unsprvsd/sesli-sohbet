@@ -1,5 +1,6 @@
-import { useState, type FormEvent } from 'react'
+import { useRef, useState, type FormEvent } from 'react'
 import { LOGO_SMALL } from './Bits'
+import AsciiBackground from './AsciiBackground'
 import { MAX_SERVER_NAME, cleanName, createServer, serverKey } from '../server'
 
 export type LoginInfo = { name: string; serverName: string; srv: string; password: string }
@@ -37,6 +38,7 @@ export default function Login({ onLogin, error: initialError = null }: Props) {
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(initialError)
   const [busy, setBusy] = useState(false)
+  const formRef = useRef<HTMLFormElement>(null)
 
   const submit = async (e: FormEvent) => {
     e.preventDefault()
@@ -66,7 +68,8 @@ export default function Login({ onLogin, error: initialError = null }: Props) {
 
   return (
     <div className="center">
-      <form className="login" onSubmit={submit}>
+      <AsciiBackground clearRef={formRef} />
+      <form className="login" onSubmit={submit} ref={formRef}>
         <pre className="logo small" aria-label="Voice Chat">
           {LOGO_SMALL}
         </pre>
