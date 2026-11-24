@@ -5,6 +5,7 @@ const RAMP = ' .:-=+*#%@'
 const FONT_SIZE = 14
 const LINE_HEIGHT = 16
 const FPS = 30
+const MOUSE_RADIUS = 8.4 // in cells
 
 /**
  * Full-screen animated ASCII background (used behind the login form).
@@ -48,7 +49,7 @@ export default function AsciiBackground({ clearRef }: Props) {
       const w = window.innerWidth
       const h = window.innerHeight
       ctx.clearRect(0, 0, w, h)
-      ctx.fillStyle = '#5a5a5a'
+      ctx.fillStyle = '#2d2d2d'
       const cx = cols / 2
       const cy = rows / 2
       const mx = mouse.x / cellW
@@ -67,7 +68,7 @@ export default function AsciiBackground({ clearRef }: Props) {
           v = (v + 4) / 8
           // brighter around the mouse
           const md = Math.hypot(x - mx, (y - my) * 2)
-          if (md < 12) v += (1 - md / 12) * 0.5
+          if (md < MOUSE_RADIUS) v += (1 - md / MOUSE_RADIUS) * 0.5
           // fade out around the form
           if (r) {
             const px = (x + 0.5) * cellW
