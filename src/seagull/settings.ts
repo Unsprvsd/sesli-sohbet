@@ -15,8 +15,8 @@ export const SETTINGS = {
       glide: [0.075, 0.008] as P2,
     },
     steer: 1.6, // how fast the speed follows the target (higher = sharper curves)
-    swoopDown: 0.26, // top speed along a glide-down curve (screen widths / s)
-    swoopDive: 0.36, // top speed along a dive curve
+    swoopDown: 0.17, // top speed along a glide-down curve (screen widths / s) (was 0.26)
+    swoopDive: 0.22, // top speed along a dive curve (was 0.36)
     // ROUTE: when a gull appears, its entry point, waypoints and exit point are
     // fixed (from its seed, so everyone gets the same route). It dives / climbs
     // from waypoint to waypoint.
@@ -29,7 +29,8 @@ export const SETTINGS = {
       jitterX: 0.05, // waypoints are not exactly evenly spaced
       flatTolerance: 0.06, // height difference that still counts as "level"
       climbRate: [0.03, 0.09] as P2, // climb speed limits (screen heights / s)
-      diveSlope: 0.9, // steeper than this (down / forward) -> dive instead of glide down
+      maxSlope: 0.7, // never steeper than this (down / forward): the swoop is stretched sideways instead
+      diveSlope: 0.5, // steeper than this -> dive (wings folded) instead of glide down
     },
     flaps: [2, 5] as P2, // wing beats before a glide
     glide: [0.8, 2] as P2, // seconds of gliding

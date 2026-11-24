@@ -286,9 +286,10 @@ export class SeagullFlock {
     }
 
     if (dy > RT.flatTolerance) {
-      // lower -> swoop down to it (dive when steep)
-      const slope = (dy * S.h) / (dx * S.w)
-      this.startSwoop(g, Math.max(0.12, dx), wy, slope > RT.diveSlope ? 'dive' : 'down')
+      // lower -> swoop down to it; too steep -> stretch the swoop sideways (gentler)
+      const dist = Math.max(0.12, dx, (dy * S.h) / (RT.maxSlope * S.w))
+      const slope = (dy * S.h) / (dist * S.w)
+      this.startSwoop(g, dist, wy, slope > RT.diveSlope ? 'dive' : 'down')
     } else if (dy < -RT.flatTolerance) {
       // higher -> climb, steep enough to get there around the waypoint
       g.climbTo = wy
