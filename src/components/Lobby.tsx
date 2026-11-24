@@ -794,13 +794,12 @@ export default function Lobby({ name, serverName, srv, password, onLogout, onFai
           {users.map((u) => (
             <li key={u.id}>
               {u.admin ? <Crown /> : <span className="dot online" />}
-              <UserName user={u} />
+              <UserName user={u} hideYou />
               {typeof u.score === 'number' && Number.isFinite(u.score) && u.score > 0 && (
                 <span className="score" title="Seagulls caught">
                   ~v~ {Math.min(99999, Math.floor(u.score))}
                 </span>
               )}
-              {u.voiceRoom && <small>{roomOf(u.voiceRoom)}</small>}
             </li>
           ))}
         </ul>

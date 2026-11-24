@@ -799,10 +799,6 @@ pre.logo {
   white-space: nowrap;
 }
 
-.online li .score + small {
-  margin-left: 8px;
-}
-
 .online li small {
   margin-left: auto;
   font-size: 11px;
