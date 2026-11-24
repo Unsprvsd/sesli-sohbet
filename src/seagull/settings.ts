@@ -36,8 +36,9 @@ export const SETTINGS = {
     glide: [0.8, 2] as P2, // seconds of gliding
     // Spawning is done by ONE user (the "leader") and sent to everyone,
     // so all users see the same gull at the same time.
-    firstSpawn: [10, 10] as P2, // seconds until the first gull (after becoming leader) — TEST value, normal: [60, 180]
-    spawnEvery: [180, 420] as P2, // seconds between gulls
+    // Random time in these ranges (side, entry height and route are random too).
+    firstSpawn: [10, 120] as P2, // seconds until the first gull (after becoming leader)
+    spawnEvery: [60, 360] as P2, // seconds between gulls
     maxGulls: 1,
     step: 1 / 60, // fixed simulation step (same path on every computer)
     virtualScreen: { w: 1600, h: 900 } as ScreenSize, // speeds are computed for this size
@@ -60,7 +61,7 @@ export const SETTINGS = {
     fontSize: 7,
     lineHeight: 1.15,
     color: '#5c5c5c', // faint, like the other background effects
-    size: 0.079, // gull width as part of the screen width (0.14 -> 0.105 -> 0.079, -25% twice)
+    size: 0.059, // gull width as part of the screen width (0.14 -> 0.105 -> 0.079 -> 0.059, -25% each time)
     viewYaw: [0.2, 0.6] as P2, // seen from the side .. three-quarter
     tilt: [0.15, 0.45] as P2, // camera a bit below
   },
