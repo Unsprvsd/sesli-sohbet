@@ -735,3 +735,104 @@ button {
     padding: 16px;
   }
 }
+
+/* --- servers & admin ---------------------------------------------------- */
+
+.tabs {
+  display: flex;
+  gap: 4px;
+  background: var(--bg);
+  border-radius: 6px;
+  padding: 4px;
+}
+
+.login .tabs button {
+  flex: 1;
+  background: none;
+  color: var(--muted);
+  font-weight: 500;
+  padding: 8px;
+}
+
+.login .tabs button.active {
+  background: var(--panel-2);
+  color: var(--text);
+}
+
+.login button:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.hint {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.server-name {
+  font-weight: 700;
+  font-size: 16px;
+  padding: 4px 4px 8px;
+  border-bottom: 1px solid var(--bg);
+  margin-bottom: 4px;
+  overflow-wrap: anywhere;
+}
+
+.sidebar h2.section {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.sidebar h2 .add {
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 18px;
+  line-height: 1;
+  padding: 0 4px;
+}
+
+.sidebar h2 .add:hover {
+  color: var(--text);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+}
+
+.row > .room-name,
+.row > .channel {
+  flex: 1;
+  min-width: 0;
+}
+
+.admin-actions {
+  display: none;
+  gap: 2px;
+}
+
+.row:hover .admin-actions,
+.row:focus-within .admin-actions {
+  display: flex;
+}
+
+.admin-actions button {
+  background: none;
+  border: none;
+  padding: 2px;
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+.admin-actions button:hover {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .admin-actions {
+    display: flex;
+  }
+}

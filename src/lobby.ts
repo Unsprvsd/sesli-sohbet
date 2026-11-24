@@ -1,6 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { joinRoom, type MessageAction, type UserState } from 'trystero'
 import { APP_ID } from './config'
+import {
+  loadCachedConfig,
+  saveCachedConfig,
+  verifyConfig,
+  type ServerConfig,
+  type SignedConfig,
+} from './server'
 
 // What every user shares with everyone else.
 export type Presence = {
@@ -10,9 +17,11 @@ export type Presence = {
   deafened: boolean
   speaking: boolean
   sharing: boolean
+  /** Admin proof: signature of my lobby user id ('' if not admin). */
+  adminSig: string
 }
 
-export type OnlineUser = Presence & { id: string; self: boolean }
+export type OnlineUser = Presence & { id: string; self: boolean; admin?: boolean }
 
 export type LobbyStatus = 'connecting' | 'online'
 
@@ -36,6 +45,7 @@ const initialPresence = (name: string): Presence => ({
   deafened: false,
   speaking: false,
   sharing: false,
+  adminSig: '',
 })
 
 function isValidMessage(m: unknown): m is ChatMessage {
@@ -74,16 +84,20 @@ function capPerRoom(sorted: ChatMessage[]): ChatMessage[] {
  * Joins the shared "lobby" room. Everyone who has the same password
  * ends up here and can see each other's presence and chat messages.
  * Changing `epoch` leaves and joins again (used for reconnecting).
+ * `srv` is the server key: each server has its own lobby room.
  */
-export function useLobby(name: string, password: string, epoch: number) {
+export function useLobby(name: string, password: string, srv: string, epoch: number) {
   const [users, setUsers] = useState<OnlineUser[]>([])
   const [status, setStatus] = useState<LobbyStatus>('connecting')
   const [warning, setWarning] = useState<string | null>(null)
   const [selfId, setSelfId] = useState('')
   const [messages, setMessages] = useState<ChatMessage[]>([])
+  const [config, setConfig] = useState<ServerConfig | null>(null)
+  const signedRef = useRef<SignedConfig | null>(null)
 
   const presenceRef = useRef<UserState<Presence> | null>(null)
   const chatRef = useRef<MessageAction<ChatMessage[]> | null>(null)
+  const configActionRef = useRef<MessageAction<SignedConfig> | null>(null)
   const refreshRef = useRef<() => void>(() => {})
   const messagesRef = useRef<ChatMessage[]>([])
   // Survives reconnects, so my state is restored after rejoining.
@@ -104,19 +118,49 @@ export function useLobby(name: string, password: string, epoch: number) {
     setMessages(next)
   }, [])
 
+  /** Accepts a signed config if it is valid and newer than mine. */
+  const acceptConfig = useCallback(
+    async (signed: unknown): Promise<boolean> => {
+      const before = signedRef.current
+      const next = await verifyConfig(signed, before ? JSON.parse(before.body).adminKey : null)
+      if (!next) return false
+      // Check again: another config may have arrived while verifying.
+      const current = signedRef.current
+      if (current) {
+        const cur = JSON.parse(current.body) as ServerConfig
+        if (cur.adminKey !== next.adminKey || cur.ts >= next.ts) return false
+      }
+      signedRef.current = signed as SignedConfig
+      saveCachedConfig(srv, signed as SignedConfig)
+      setConfig(next)
+      return true
+    },
+    [srv],
+  )
+
+  // Load the config this browser already knows for this server.
+  useEffect(() => {
+    signedRef.current = null
+    setConfig(null)
+    const cached = loadCachedConfig(srv)
+    if (cached) acceptConfig(cached)
+  }, [srv, acceptConfig])
+
   useEffect(() => {
     setStatus('connecting')
     setWarning(null)
 
     // identity: 'none' → a fresh identity per tab, so two tabs = two users.
-    const room = joinRoom({ appId: APP_ID, password, identity: 'none' }, 'lobby')
+    const room = joinRoom({ appId: APP_ID, password, identity: 'none' }, `s-${srv}-lobby`)
     const presence = room.makeUserState<Presence>('presence', {
       ...lastPresenceRef.current,
       name,
     })
     const chat = room.makeAction<ChatMessage[]>('chat')
+    const configAction = room.makeAction<SignedConfig>('config')
     presenceRef.current = presence
     chatRef.current = chat
+    configActionRef.current = configAction
 
     let selfUserId = ''
 
@@ -142,15 +186,20 @@ export function useLobby(name: string, password: string, epoch: number) {
       room.onUserLeave(refresh),
       // Give newcomers the recent chat history.
       room.onPeerJoin(({ peerId }) => {
+        // Give newcomers the newest channel list I know.
+        if (signedRef.current) configAction.send(signedRef.current, { target: peerId }).catch(() => {})
         const history = messagesRef.current.slice(-HISTORY_SENT_TO_NEWCOMERS)
         if (history.length) chat.send(history, { target: peerId }).catch(() => {})
+      }),
+      configAction.onMessage((data) => {
+        acceptConfig(data)
       }),
       chat.onMessage((data) => {
         if (Array.isArray(data)) addMessages(data)
       }),
       room.onError((e) => {
         if (e.code === 'decrypt-failed') {
-          setWarning('Farklı şifreli biri bağlanmaya çalıştı. Herkes aynı şifreyi mi kullanıyor?')
+          setWarning('Bu sunucuda farklı şifre kullanan biri var. Şifreni kontrol et.')
         } else if (e.code === 'relay-failed') {
           setWarning('Sinyal ağına bağlanılamadı. İnternet bağlantını kontrol et.')
         }
@@ -175,9 +224,18 @@ export function useLobby(name: string, password: string, epoch: number) {
       offs.forEach((off) => off())
       presenceRef.current = null
       chatRef.current = null
+      configActionRef.current = null
       room.leave()
     }
-  }, [name, password, epoch, addMessages])
+  }, [name, password, srv, epoch, addMessages, acceptConfig])
+
+  /** Admin only: share a new signed config with everyone. */
+  const publishConfig = useCallback(
+    async (signed: SignedConfig) => {
+      if (await acceptConfig(signed)) configActionRef.current?.send(signed).catch(() => {})
+    },
+    [acceptConfig],
+  )
 
   // Change part of my own presence (e.g. which voice room I'm in).
   const updatePresence = useCallback(async (patch: Partial<Presence>) => {
@@ -206,5 +264,15 @@ export function useLobby(name: string, password: string, epoch: number) {
     [selfId, name, addMessages],
   )
 
-  return { users, status, warning, selfId, messages, updatePresence, sendChat }
+  return {
+    users,
+    status,
+    warning,
+    selfId,
+    messages,
+    config,
+    updatePresence,
+    sendChat,
+    publishConfig,
+  }
 }

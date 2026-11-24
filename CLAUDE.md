@@ -109,6 +109,14 @@ Discord/
   echo). Opt-in watching: viewer sends `screen-watch` {uid, watch} in the
   voice room; sharer addStream(screen, {target, metadata:{uid, kind:'screen'}})
   only to watchers. Presence field `sharing`. Phones can watch, not share.
+- Servers (written + tested by Claude on localhost, not pushed, 2026-11-24):
+  login = "Sunucuya katıl" / "Sunucu kur" with server name + password.
+  No fixed rooms any more; new server = 1 voice room + 1 text channel.
+  Creator = admin: ECDSA private key in their localStorage; channel list
+  ("config") is signed, cached by every member, sent to newcomers via
+  lobby action `config`. Admin adds/renames/deletes rooms; 👑 via signed
+  `adminSig` in presence. Room ids: `s-<key>-lobby`, `voice-<key>-<id>`
+  (`key` = short hash of lower-cased name). Code: `src/server.ts`.
 - Rule: test big changes on localhost BEFORE pushing — friends use the live site.
 - Speaking state is self-reported through lobby presence (no peer-id mapping
   between lobby and voice rooms needed).

@@ -1,6 +1,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { TEXT_CHANNELS, VOICE_ROOMS } from '../config'
 import { useLobby } from '../lobby'
+import {
+  MAX_CHANNEL_NAME,
+  MAX_CHANNELS,
+  cleanName,
+  loadAdminKey,
+  newId,
+  signConfig,
+  signText,
+  verifyText,
+  type Channel,
+  type ServerConfig,
+} from '../server'
 import { useSameDeviceTabs } from '../sameDevice'
 import { keyLabel, useSetting } from '../settings'
 import { canShareScreen, startScreenShare, useVoice } from '../voice'
@@ -12,6 +23,8 @@ import VoicePanel from './VoicePanel'
 
 type Props = {
   name: string
+  serverName: string
+  srv: string
   password: string
   onLogout: () => void
 }
@@ -20,7 +33,7 @@ type Props = {
 const RETRY_BASE_MS = 15_000
 const MAX_RETRIES = 3
 
-export default function Lobby({ name, password, onLogout }: Props) {
+export default function Lobby({ name, serverName, srv, password, onLogout }: Props) {
   // --- connection / reconnect -------------------------------------------
   const [online, setOnline] = useState(() => navigator.onLine)
   const [lobbyEpoch, setLobbyEpoch] = useState(0)
@@ -40,11 +53,121 @@ export default function Lobby({ name, password, onLogout }: Props) {
     }
   }, [])
 
-  const { users, status, warning, selfId, messages, updatePresence, sendChat } = useLobby(
-    name,
-    password,
-    lobbyEpoch,
+  const {
+    users: rawUsers,
+    status,
+    warning,
+    selfId,
+    messages,
+    config,
+    updatePresence,
+    sendChat,
+    publishConfig,
+  } = useLobby(name, password, srv, lobbyEpoch)
+
+  const voiceRooms = config?.voice ?? []
+  const textChannels = config?.text ?? []
+
+  // --- admin --------------------------------------------------------------
+  // The private key exists only in the browser that created the server.
+  const [adminKey, setAdminKey] = useState<CryptoKey | null>(null)
+  useEffect(() => {
+    let alive = true
+    loadAdminKey(srv).then((k) => alive && setAdminKey(k))
+    return () => {
+      alive = false
+    }
+  }, [srv])
+  const isAdmin = !!adminKey && !!config
+
+  // Prove to others that I'm the admin: sign my lobby user id.
+  useEffect(() => {
+    if (!adminKey || !selfId) return
+    signText(adminKey, selfId).then((adminSig) => updatePresence({ adminSig }))
+  }, [adminKey, selfId, updatePresence])
+
+  // Check other people's admin proofs (results cached).
+  const [adminIds, setAdminIds] = useState<Set<string>>(new Set())
+  const checkedRef = useRef(new Map<string, boolean>())
+  useEffect(() => {
+    if (!config) return
+    let alive = true
+    const check = async () => {
+      const ids = new Set<string>()
+      for (const u of rawUsers) {
+        if (!u.adminSig) continue
+        const k = `${config.adminKey}|${u.id}|${u.adminSig}`
+        let ok = checkedRef.current.get(k)
+        if (ok === undefined) {
+          ok = await verifyText(config.adminKey, u.id, u.adminSig)
+          checkedRef.current.set(k, ok)
+        }
+        if (ok) ids.add(u.id)
+      }
+      if (alive) {
+        setAdminIds((prev) =>
+          prev.size === ids.size && [...ids].every((id) => prev.has(id)) ? prev : ids,
+        )
+      }
+    }
+    check()
+    return () => {
+      alive = false
+    }
+  }, [rawUsers, config])
+
+  const users = useMemo(
+    () => rawUsers.map((u) => (adminIds.has(u.id) ? { ...u, admin: true } : u)),
+    [rawUsers, adminIds],
   )
+
+  const editConfig = async (change: (c: ServerConfig) => ServerConfig) => {
+    if (!adminKey || !config) return
+    const next = { ...change(config), ts: Math.max(Date.now(), config.ts + 1) }
+    await publishConfig(await signConfig(adminKey, next))
+  }
+
+  const askName = (title: string, current = '') => {
+    const v = window.prompt(title, current)
+    return v === null ? '' : cleanName(v, MAX_CHANNEL_NAME)
+  }
+
+  const addChannel = (kind: 'voice' | 'text') => {
+    const list = kind === 'voice' ? voiceRooms : textChannels
+    if (list.length >= MAX_CHANNELS) return alert(`En fazla ${MAX_CHANNELS} tane olabilir.`)
+    const n = askName(kind === 'voice' ? 'Yeni ses odasının adı:' : 'Yeni yazı kanalının adı:')
+    if (!n) return
+    editConfig((c) => ({ ...c, [kind]: [...c[kind], { id: newId(), name: n }] }))
+  }
+
+  const renameChannel = (kind: 'voice' | 'text', ch: Channel) => {
+    const n = askName('Yeni ad:', ch.name)
+    if (!n || n === ch.name) return
+    editConfig((c) => ({
+      ...c,
+      [kind]: c[kind].map((x) => (x.id === ch.id ? { ...x, name: n } : x)),
+    }))
+  }
+
+  const deleteChannel = (kind: 'voice' | 'text', ch: Channel) => {
+    const list = kind === 'voice' ? voiceRooms : textChannels
+    if (list.length <= 1) return alert('En az bir tane kalmalı.')
+    const what = kind === 'voice' ? 'ses odası' : 'yazı kanalı'
+    if (!window.confirm(`"${ch.name}" ${what} silinsin mi?`)) return
+    editConfig((c) => ({ ...c, [kind]: c[kind].filter((x) => x.id !== ch.id) }))
+  }
+
+  const adminButtons = (kind: 'voice' | 'text', ch: Channel) =>
+    isAdmin && (
+      <span className="admin-actions">
+        <button onClick={() => renameChannel(kind, ch)} title="Adını değiştir">
+          ✏️
+        </button>
+        <button onClick={() => deleteChannel(kind, ch)} title="Sil">
+          🗑️
+        </button>
+      </span>
+    )
 
   // --- my state ---------------------------------------------------------
   const [myRoom, setMyRoom] = useState<string | null>(null)
@@ -162,7 +285,7 @@ export default function Lobby({ name, password, onLogout }: Props) {
   const voice = useVoice({
     screen,
     watchUid,
-    roomId: myRoom,
+    roomId: myRoom ? `${srv}-${myRoom}` : null,
     password,
     selfId,
     transmit,
@@ -177,6 +300,11 @@ export default function Lobby({ name, password, onLogout }: Props) {
   useEffect(() => {
     updatePresence({ voiceRoom: myRoom, muted: micMuted, deafened, sharing: !!screen })
   }, [myRoom, micMuted, deafened, screen, updatePresence])
+
+  // The admin deleted my voice room → leave it.
+  useEffect(() => {
+    if (myRoom && config && !config.voice.some((r) => r.id === myRoom)) setMyRoom(null)
+  }, [myRoom, config])
 
   // If the mic fails, leave the room again.
   useEffect(() => {
@@ -207,53 +335,72 @@ export default function Lobby({ name, password, onLogout }: Props) {
   }, [myRoom, voice.ready, voice.peerCount, expectedPeers])
 
   // --- render -----------------------------------------------------------
-  const roomName = VOICE_ROOMS.find((r) => r.id === myRoom)?.name ?? ''
+  const roomName = voiceRooms.find((r) => r.id === myRoom)?.name ?? ''
   const roomMembers = users.filter((u) => u.voiceRoom === myRoom)
 
   // --- text channels ----------------------------------------------------
-  const [savedChannel, setChannel] = useSetting<string>('textChannel', TEXT_CHANNELS[0].id)
-  const channel = TEXT_CHANNELS.find((c) => c.id === savedChannel) ?? TEXT_CHANNELS[0]
+  const [savedChannel, setChannel] = useSetting<string>(`textChannel:${srv}`, '')
+  const channel: Channel | null =
+    textChannels.find((c) => c.id === savedChannel) ?? textChannels[0] ?? null
+  const channelId = channel?.id ?? ''
   const channelMessages = useMemo(
-    () => messages.filter((m) => m.room === channel.id),
-    [messages, channel.id],
+    () => messages.filter((m) => m.room === channelId),
+    [messages, channelId],
   )
 
   // Unread counter: messages newer than when I last looked at the channel.
   // Starts at login time, so history received on joining is not "unread".
-  const [lastSeen, setLastSeen] = useState<Record<string, number>>(() => {
-    const now = Date.now()
-    return Object.fromEntries(TEXT_CHANNELS.map((c) => [c.id, now]))
-  })
+  const [loginTime] = useState(() => Date.now())
+  const [lastSeen, setLastSeen] = useState<Record<string, number>>({})
   // The channel I'm looking at is always "seen".
   useEffect(() => {
-    setLastSeen((prev) => ({ ...prev, [channel.id]: Date.now() }))
-  }, [channel.id, channelMessages.length])
+    if (channelId) setLastSeen((prev) => ({ ...prev, [channelId]: Date.now() }))
+  }, [channelId, channelMessages.length])
   const unread = useMemo(() => {
     const out: Record<string, number> = {}
     for (const m of messages) {
-      if (m.name !== name && m.ts > (lastSeen[m.room] ?? 0)) {
+      if (m.name !== name && m.ts > (lastSeen[m.room] ?? loginTime)) {
         out[m.room] = (out[m.room] ?? 0) + 1
       }
     }
     return out
-  }, [messages, lastSeen, name])
+  }, [messages, lastSeen, name, loginTime])
   const someoneMissing = !!myRoom && voice.ready && voice.peerCount < expectedPeers
-  const sameDeviceTab = useSameDeviceTabs(myRoom)
+  const sameDeviceTab = useSameDeviceTabs(myRoom ? `${srv}-${myRoom}` : null)
 
   return (
     <div className="layout">
       <aside className="sidebar">
+        <div className="server-name" title={isAdmin ? 'Bu sunucunun yöneticisisin' : ''}>
+          {isAdmin && '👑 '}
+          {config?.name ?? serverName}
+        </div>
         <div className="sidebar-head">
           <span className={`dot ${online ? status : 'offline'}`} />
           {!online ? 'İnternet yok' : status === 'online' ? 'Bağlı' : 'Bağlanıyor…'}
         </div>
 
-        <h2>Ses odaları</h2>
-        {VOICE_ROOMS.map((room) => {
+        {!config && (
+          <small className="hint">
+            Sunucu bilgisi bekleniyor… Şu an çevrimiçi kimse yoksa ya da sunucu adı / şifre
+            yanlışsa odalar görünmez.
+          </small>
+        )}
+
+        <h2 className="section">
+          Ses odaları
+          {isAdmin && (
+            <button className="add" onClick={() => addChannel('voice')} title="Ses odası ekle">
+              +
+            </button>
+          )}
+        </h2>
+        {voiceRooms.map((room) => {
           const members = users.filter((u) => u.voiceRoom === room.id)
           const inside = myRoom === room.id
           return (
             <div key={room.id} className={`room ${inside ? 'active' : ''}`}>
+              <div className="row">
               <button
                 className="room-name"
                 onClick={() => setMyRoom(room.id)}
@@ -262,6 +409,8 @@ export default function Lobby({ name, password, onLogout }: Props) {
               >
                 🔊 {room.name}
               </button>
+              {adminButtons('voice', room)}
+              </div>
               <ul>
                 {members.map((u) => (
                   <li key={u.id}>
@@ -273,19 +422,28 @@ export default function Lobby({ name, password, onLogout }: Props) {
           )
         })}
 
-        <h2>Yazı kanalları</h2>
-        {TEXT_CHANNELS.map((c) => {
-          const active = c.id === channel.id
+        <h2 className="section">
+          Yazı kanalları
+          {isAdmin && (
+            <button className="add" onClick={() => addChannel('text')} title="Yazı kanalı ekle">
+              +
+            </button>
+          )}
+        </h2>
+        {textChannels.map((c) => {
+          const active = c.id === channelId
           const count = active ? 0 : (unread[c.id] ?? 0)
           return (
-            <button
-              key={c.id}
-              className={`channel ${active ? 'active' : ''} ${count ? 'unread' : ''}`}
-              onClick={() => setChannel(c.id)}
-            >
-              <span># {c.name}</span>
-              {count > 0 && <span className="badge">{count > 99 ? '99+' : count}</span>}
-            </button>
+            <div key={c.id} className="row">
+              <button
+                className={`channel ${active ? 'active' : ''} ${count ? 'unread' : ''}`}
+                onClick={() => setChannel(c.id)}
+              >
+                <span># {c.name}</span>
+                {count > 0 && <span className="badge">{count > 99 ? '99+' : count}</span>}
+              </button>
+              {adminButtons('text', c)}
+            </div>
           )
         })}
 
@@ -406,12 +564,14 @@ export default function Lobby({ name, password, onLogout }: Props) {
           />
         )}
 
-        <Chat
-          roomName={channel.name}
-          messages={channelMessages}
-          myName={name}
-          onSend={(text) => sendChat(channel.id, text)}
-        />
+        {channel && (
+          <Chat
+            roomName={channel.name}
+            messages={channelMessages}
+            myName={name}
+            onSend={(text) => sendChat(channel.id, text)}
+          />
+        )}
       </main>
 
       <aside className="people">
@@ -421,7 +581,7 @@ export default function Lobby({ name, password, onLogout }: Props) {
             <li key={u.id}>
               <span className="dot online" /> <UserName user={u} />
               {u.voiceRoom && (
-                <small> · 🔊 {VOICE_ROOMS.find((r) => r.id === u.voiceRoom)?.name}</small>
+                <small> · 🔊 {voiceRooms.find((r) => r.id === u.voiceRoom)?.name}</small>
               )}
             </li>
           ))}

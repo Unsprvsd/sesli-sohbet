@@ -1,51 +1,102 @@
 import { useState, type FormEvent } from 'react'
+import { MAX_SERVER_NAME, cleanName, createServer, serverKey } from '../server'
+
+export type LoginInfo = { name: string; serverName: string; srv: string; password: string }
 
 type Props = {
-  onLogin: (name: string, password: string) => void
+  onLogin: (info: LoginInfo) => void
 }
 
-const NAME_KEY = 'sesli-sohbet:name'
+type Mode = 'join' | 'create'
 
-function loadName(): string {
+const NAME_KEY = 'sesli-sohbet:name'
+const SERVER_KEY = 'sesli-sohbet:lastServer'
+
+function load(key: string): string {
   try {
-    return localStorage.getItem(NAME_KEY) ?? ''
+    return localStorage.getItem(key) ?? ''
   } catch {
     return ''
   }
 }
 
-export default function Login({ onLogin }: Props) {
-  const [name, setName] = useState(loadName)
-  const [password, setPassword] = useState('')
+function save(key: string, value: string) {
+  try {
+    localStorage.setItem(key, value)
+  } catch {
+    /* storage blocked: ignore */
+  }
+}
 
-  const submit = (e: FormEvent) => {
+export default function Login({ onLogin }: Props) {
+  const [mode, setMode] = useState<Mode>('join')
+  const [name, setName] = useState(() => load(NAME_KEY))
+  const [serverName, setServerName] = useState(() => load(SERVER_KEY))
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  const submit = async (e: FormEvent) => {
     e.preventDefault()
     const n = name.trim()
-    if (!n || !password) return
-    try {
-      localStorage.setItem(NAME_KEY, n)
-    } catch {
-      /* storage blocked: ignore */
+    const s = cleanName(serverName, MAX_SERVER_NAME)
+    if (!n || !s || !password) return
+    if (mode === 'create' && password.length < 6) {
+      setError('Şifre en az 6 karakter olsun.')
+      return
     }
-    onLogin(n, password)
+    setError(null)
+    setBusy(true)
+    try {
+      if (mode === 'create' && (await createServer(s)) === 'exists') {
+        setError('Bu tarayıcıda bu isimde bir sunucu zaten var. "Katıl" ile gir.')
+        return
+      }
+      save(NAME_KEY, n)
+      save(SERVER_KEY, s)
+      onLogin({ name: n, serverName: s, srv: await serverKey(s), password })
+    } catch {
+      setError('Bir hata oldu. Sayfayı yenileyip tekrar dene.')
+    } finally {
+      setBusy(false)
+    }
   }
 
   return (
     <div className="center">
       <form className="card login" onSubmit={submit}>
         <h1>Sesli Sohbet</h1>
+        <div className="tabs">
+          <button
+            type="button"
+            className={mode === 'join' ? 'active' : ''}
+            onClick={() => setMode('join')}
+          >
+            Sunucuya katıl
+          </button>
+          <button
+            type="button"
+            className={mode === 'create' ? 'active' : ''}
+            onClick={() => setMode('create')}
+          >
+            Sunucu kur
+          </button>
+        </div>
         <label>
           Kullanıcı adı
+          <input value={name} onChange={(e) => setName(e.target.value)} maxLength={24} required />
+        </label>
+        <label>
+          Sunucu adı
           <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            maxLength={24}
-            autoFocus
+            value={serverName}
+            onChange={(e) => setServerName(e.target.value)}
+            maxLength={MAX_SERVER_NAME}
             required
           />
         </label>
         <label>
-          Davet şifresi
+          {mode === 'create' ? 'Sunucu şifresi (arkadaşlarına vereceksin)' : 'Sunucu şifresi'}
           <input
             type="password"
             value={password}
@@ -53,7 +104,16 @@ export default function Login({ onLogin }: Props) {
             required
           />
         </label>
-        <button type="submit">Giriş yap</button>
+        {mode === 'create' && (
+          <small className="hint">
+            Sunucuyu kuran yönetici olur ve odaları yönetir. Yöneticilik sadece bu tarayıcıda
+            kalır.
+          </small>
+        )}
+        {error && <div className="warning">{error}</div>}
+        <button type="submit" disabled={busy}>
+          {mode === 'create' ? 'Sunucuyu kur' : 'Giriş yap'}
+        </button>
       </form>
     </div>
   )
