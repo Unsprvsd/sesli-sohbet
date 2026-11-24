@@ -104,7 +104,9 @@ Discord/
   list. Unread badges count messages newer than login / last view.
   Volume = popup under the name in the voice bar. Same-PC two-tab warning
   (BroadcastChannel) to explain feedback ringing.
-- Screen sharing live but not yet tested with friends: 🖥️ button in a voice
+- Screen sharing live; end-to-end tested by Claude 2026-11-24 with fake mic/screen
+  (canvas) in two tabs — share, watch, stop, rewatch, sharer stops/leaves all OK.
+  Not yet tested with a real window picker, tab audio, or friends: 🖥️ button in a voice
   room, getDisplayMedia (tab audio yes, system audio excluded to avoid
   echo). Opt-in watching: viewer sends `screen-watch` {uid, watch} in the
   voice room; sharer addStream(screen, {target, metadata:{uid, kind:'screen'}})
