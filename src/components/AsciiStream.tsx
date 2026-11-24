@@ -1,24 +1,23 @@
 import { useEffect, useRef } from 'react'
 
 const FONT_SIZE = 14
-// Head of the beam first, tail last: dense letters fade into dots.
-const BEAM_CHARS = '@#&%$*+=~-:;,.'
-// Brightness from head to tail (faint, on black).
-const HEAD = 0x3c
-const TAIL = 0x0a
+const CHARS = '@#&%$*+=~-:;,.'
 // Space between letters, in letter widths (>1 so each letter can be read).
 const SPACING = 1.6
-// Lanes: height on the screen (0..1). One beam at a time per lane.
+// Lanes: height of each fixed line on the screen (0..1).
 const LANES = [0.17, 0.39, 0.62, 0.84]
+// Brightness (grey level on black): resting letter / fully lit letter.
+const BASE = 0x10
+const PEAK = 0x48
+// Glow: how many letters it takes to light up (in front) and to fade (behind).
+const RISE = 5
+const FADE = 28
 
-type Beam = {
-  y: number // px
-  x: number // px, position of the head
+type Glow = {
+  pos: number // position of the glow, in letters (can be outside the line)
   dir: number // -1 = right to left, +1 = left to right
-  speed: number // px per second
-  len: number // letters
-  chars: string
-  wait: number // seconds until it starts (when not running)
+  speed: number // letters per second
+  wait: number // seconds until the next glow starts
   running: boolean
 }
 
@@ -27,9 +26,9 @@ function rand(a: number, b: number) {
 }
 
 /**
- * Faint ASCII "beams" behind the server screen: in a few lanes a short
- * streak of letters appears at the right edge, runs to the left and leaves;
- * then, after a random pause, the next one starts.
+ * Faint, fixed ASCII lines behind the server screen. The letters never move;
+ * a soft glow travels along each line, lighting the letters up one by one,
+ * and the letters it leaves behind slowly fade back.
  */
 export default function AsciiStream() {
   const ref = useRef<HTMLCanvasElement>(null)
@@ -38,11 +37,12 @@ export default function AsciiStream() {
     const canvas = ref.current
     const ctx = canvas?.getContext('2d')
     if (!canvas || !ctx) return
-    // Reduced motion: no beams at all (a frozen beam looks like a glitch).
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
 
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
     const font = getComputedStyle(document.body).fontFamily || 'monospace'
-    let cellW = 8
+    let step = 13
+    let cols = 0
+    let lines: string[] = []
 
     const resize = () => {
       const dpr = window.devicePixelRatio || 1
@@ -51,30 +51,56 @@ export default function AsciiStream() {
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
       ctx.font = `${FONT_SIZE}px ${font}`
       ctx.textBaseline = 'middle'
-      cellW = ctx.measureText('M').width || 8
+      step = (ctx.measureText('M').width || 8) * SPACING
+      cols = Math.ceil(window.innerWidth / step) + 1
+      // fixed random letters for each line
+      lines = LANES.map(() => {
+        let s = ''
+        for (let i = 0; i < cols; i++) s += CHARS[Math.floor(Math.random() * CHARS.length)]
+        return s
+      })
     }
 
-    const reset = (b: Beam, lane: number, first: boolean) => {
-      b.running = false
-      b.wait = first ? rand(0.3, 5) : rand(1.5, 7)
-      b.y = Math.round((LANES[lane] + rand(-0.04, 0.04)) * window.innerHeight)
-      b.dir = Math.random() < 0.5 ? -1 : 1
-      b.speed = rand(70, 140)
-      b.len = Math.round(rand(14, 30))
-      // letters along the beam: denser at the head, dots at the tail
-      let s = ''
-      for (let i = 0; i < b.len; i++) {
-        const k = (i / b.len) * (BEAM_CHARS.length - 1) + rand(-0.8, 0.8)
-        s += BEAM_CHARS[Math.max(0, Math.min(BEAM_CHARS.length - 1, Math.round(k)))]
-      }
-      b.chars = s
+    const start = (g: Glow) => {
+      g.running = true
+      g.dir = Math.random() < 0.5 ? -1 : 1
+      g.speed = rand(6, 11)
+      g.pos = g.dir > 0 ? -RISE : cols + RISE
     }
 
-    const beams: Beam[] = LANES.map((_, i) => {
-      const b = { y: 0, x: 0, dir: -1, speed: 0, len: 0, chars: '', wait: 0, running: false }
-      reset(b, i, true)
-      return b
-    })
+    const glows: Glow[] = LANES.map(() => ({
+      pos: 0,
+      dir: 1,
+      speed: 0,
+      wait: rand(0.2, 4),
+      running: false,
+    }))
+
+    // brightness of letter i on a line, given that line's glow
+    const level = (i: number, g: Glow) => {
+      if (!g.running) return BASE
+      // d > 0: the glow has passed this letter (behind); d < 0: still in front
+      const d = (g.pos - i) * g.dir
+      let f = 0
+      if (d >= 0) f = Math.max(0, 1 - d / FADE)
+      else f = Math.max(0, 1 + d / RISE)
+      return Math.round(BASE + (PEAK - BASE) * f * f)
+    }
+
+    const draw = () => {
+      const h = window.innerHeight
+      ctx.clearRect(0, 0, window.innerWidth, h)
+      LANES.forEach((lane, li) => {
+        const y = Math.round(lane * h)
+        const g = glows[li]
+        const line = lines[li]
+        for (let i = 0; i < cols; i++) {
+          const c = level(i, g)
+          ctx.fillStyle = `rgb(${c},${c},${c})`
+          ctx.fillText(line[i], i * step, y)
+        }
+      })
+    }
 
     let raf = 0
     let last = performance.now()
@@ -82,41 +108,35 @@ export default function AsciiStream() {
       raf = requestAnimationFrame(loop)
       const dt = Math.min(0.1, (now - last) / 1000) // cap after a hidden tab
       last = now
-      const w = window.innerWidth
-      const step = cellW * SPACING
-      ctx.clearRect(0, 0, w, window.innerHeight)
-      beams.forEach((b, lane) => {
-        if (!b.running) {
-          b.wait -= dt
-          if (b.wait > 0) return
-          b.running = true
-          // start just outside the edge it comes from
-          b.x = b.dir < 0 ? w + step : -step
+      for (const g of glows) {
+        if (!g.running) {
+          g.wait -= dt
+          if (g.wait <= 0) start(g)
+          continue
         }
-        b.x += b.dir * b.speed * dt
-        // the tail trails behind the head, opposite to the direction
-        const tailEnd = b.x - b.dir * b.len * step
-        if ((b.dir < 0 && tailEnd < -step) || (b.dir > 0 && tailEnd > w + step)) {
-          reset(b, lane, false)
-          return
+        g.pos += g.dir * g.speed * dt
+        // done when the faded tail has left the line
+        const tail = g.pos - g.dir * FADE
+        if ((g.dir > 0 && tail > cols) || (g.dir < 0 && tail < 0)) {
+          g.running = false
+          g.wait = rand(1, 5)
         }
-        for (let i = 0; i < b.len; i++) {
-          const cx = b.x - b.dir * i * step
-          if (cx < -step || cx > w + step) continue
-          const f = 1 - i / b.len
-          const c = Math.round(TAIL + (HEAD - TAIL) * f * f)
-          ctx.fillStyle = `rgb(${c},${c},${c})`
-          ctx.fillText(b.chars[i], cx, b.y)
-        }
-      })
+      }
+      draw()
+    }
+
+    const onResize = () => {
+      resize()
+      draw()
     }
 
     resize()
-    window.addEventListener('resize', resize)
-    raf = requestAnimationFrame(loop)
+    draw()
+    window.addEventListener('resize', onResize)
+    if (!reduceMotion) raf = requestAnimationFrame(loop)
     return () => {
       cancelAnimationFrame(raf)
-      window.removeEventListener('resize', resize)
+      window.removeEventListener('resize', onResize)
     }
   }, [])
 
