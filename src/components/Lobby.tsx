@@ -13,6 +13,7 @@ import {
   type ServerConfig,
 } from '../server'
 import { useSameDeviceTabs } from '../sameDevice'
+import AsciiStream from './AsciiStream'
 import { keyLabel, useSetting } from '../settings'
 import {
   DEFAULT_SCREEN_QUALITY,
@@ -492,6 +493,7 @@ export default function Lobby({ name, serverName, srv, password, onLogout, onFai
 
   return (
     <div className="layout">
+      <AsciiStream />
       <aside className="sidebar">
         <div className="server-name">
           <span>{config.name}</span>
