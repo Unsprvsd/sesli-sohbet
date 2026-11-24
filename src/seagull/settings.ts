@@ -26,7 +26,7 @@ export const SETTINGS = {
     randomClimb: 0.05, // chance per second of a short climb (when not too high)
     // Spawning is done by ONE user (the "leader") and sent to everyone,
     // so all users see the same gull at the same time.
-    firstSpawn: [60, 180] as P2, // seconds until the first gull (after becoming leader)
+    firstSpawn: [10, 10] as P2, // seconds until the first gull (after becoming leader) — TEST value, normal: [60, 180]
     spawnEvery: [180, 420] as P2, // seconds between gulls
     maxGulls: 1,
     step: 1 / 60, // fixed simulation step (same path on every computer)
