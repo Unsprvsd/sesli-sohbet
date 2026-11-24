@@ -4,6 +4,7 @@ import { MAX_SERVER_NAME, cleanName, createServer, serverKey } from '../server'
 export type LoginInfo = { name: string; serverName: string; srv: string; password: string }
 
 type Props = {
+  error?: string | null
   onLogin: (info: LoginInfo) => void
 }
 
@@ -28,12 +29,12 @@ function save(key: string, value: string) {
   }
 }
 
-export default function Login({ onLogin }: Props) {
+export default function Login({ onLogin, error: initialError = null }: Props) {
   const [mode, setMode] = useState<Mode>('join')
   const [name, setName] = useState(() => load(NAME_KEY))
   const [serverName, setServerName] = useState(() => load(SERVER_KEY))
   const [password, setPassword] = useState('')
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(initialError)
   const [busy, setBusy] = useState(false)
 
   const submit = async (e: FormEvent) => {

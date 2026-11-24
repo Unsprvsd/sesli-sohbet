@@ -27,13 +27,17 @@ type Props = {
   srv: string
   password: string
   onLogout: () => void
+  /** Leave with an error shown on the login screen. */
+  onFail: (message: string) => void
 }
 
 // Voice watchdog: wait this long before rejoining, doubling each try.
 const RETRY_BASE_MS = 15_000
 const MAX_RETRIES = 3
+// Give up looking for an unknown server after this long.
+const FIND_TIMEOUT_MS = 45_000
 
-export default function Lobby({ name, serverName, srv, password, onLogout }: Props) {
+export default function Lobby({ name, serverName, srv, password, onLogout, onFail }: Props) {
   // --- connection / reconnect -------------------------------------------
   const [online, setOnline] = useState(() => navigator.onLine)
   const [lobbyEpoch, setLobbyEpoch] = useState(0)
@@ -57,6 +61,7 @@ export default function Lobby({ name, serverName, srv, password, onLogout }: Pro
     users: rawUsers,
     status,
     warning,
+    decryptFailed,
     selfId,
     messages,
     config,
@@ -368,6 +373,39 @@ export default function Lobby({ name, serverName, srv, password, onLogout }: Pro
   const someoneMissing = !!myRoom && voice.ready && voice.peerCount < expectedPeers
   const sameDeviceTab = useSameDeviceTabs(myRoom ? `${srv}-${myRoom}` : null)
 
+  // --- server not found -------------------------------------------------
+  // Without our own server, a server "exists" only if this browser already
+  // knows it or someone online sends us its channel list.
+  useEffect(() => {
+    if (config) return
+    if (decryptFailed) {
+      onFail('Wrong password for this server.')
+      return
+    }
+    const timer = setTimeout(
+      () =>
+        onFail(
+          'Server not found. Check the name and password. Someone from the server must be online.',
+        ),
+      FIND_TIMEOUT_MS,
+    )
+    return () => clearTimeout(timer)
+  }, [config, decryptFailed, onFail])
+
+  if (!config) {
+    return (
+      <div className="center">
+        <div className="card login">
+          <h1>{serverName}</h1>
+          <p className="hint">Looking for the server…</p>
+          <button className="link" onClick={onLogout}>
+            Cancel
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="layout">
       <aside className="sidebar">
@@ -379,13 +417,6 @@ export default function Lobby({ name, serverName, srv, password, onLogout }: Pro
           <span className={`dot ${online ? status : 'offline'}`} />
           {!online ? 'No internet' : status === 'online' ? 'Connected' : 'Connecting…'}
         </div>
-
-        {!config && (
-          <small className="hint">
-            Waiting for server info… Rooms will not show if nobody is online right now, or
-            if the server name / password is wrong.
-          </small>
-        )}
 
         <h2 className="section">
           Voice rooms

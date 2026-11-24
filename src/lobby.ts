@@ -90,6 +90,8 @@ export function useLobby(name: string, password: string, srv: string, epoch: num
   const [users, setUsers] = useState<OnlineUser[]>([])
   const [status, setStatus] = useState<LobbyStatus>('connecting')
   const [warning, setWarning] = useState<string | null>(null)
+  // Someone here could not read our messages → probably a different password.
+  const [decryptFailed, setDecryptFailed] = useState(false)
   const [selfId, setSelfId] = useState('')
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [config, setConfig] = useState<ServerConfig | null>(null)
@@ -199,6 +201,7 @@ export function useLobby(name: string, password: string, srv: string, epoch: num
       }),
       room.onError((e) => {
         if (e.code === 'decrypt-failed') {
+          setDecryptFailed(true)
           setWarning('Someone on this server uses a different password. Check your password.')
         } else if (e.code === 'relay-failed') {
           setWarning('Could not reach the signaling network. Check your internet connection.')
@@ -268,6 +271,7 @@ export function useLobby(name: string, password: string, srv: string, epoch: num
     users,
     status,
     warning,
+    decryptFailed,
     selfId,
     messages,
     config,
