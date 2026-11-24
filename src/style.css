@@ -792,6 +792,18 @@ pre.logo {
   padding: 3px 0;
 }
 
+/* seagulls caught, right side of the online list */
+.online li .score {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.online li .score + small {
+  margin-left: 8px;
+}
+
 .online li small {
   margin-left: auto;
   font-size: 11px;

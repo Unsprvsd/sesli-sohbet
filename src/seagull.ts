@@ -1,9 +1,11 @@
-// ASCII seagull: shape, animations and flight behaviour in one place.
+// ASCII seagull: shape, animations, flight and the catching game in one place.
 // Tuned in vault/Design/ascii-bird.html (test page with "Animation sheets").
 // All numbers live in the SEAGULL object below - change them there.
 
 type P2 = [number, number]
 type P3 = [number, number, number]
+
+export type ScreenSize = { w: number; h: number } // px
 
 export type Pose = {
   a1: number // inner wing angle (up +)
@@ -27,7 +29,6 @@ type Action = {
 const TAU = Math.PI * 2
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t
 const smooth = (t: number) => t * t * (3 - 2 * t)
-const rand = (a: number, b: number) => a + Math.random() * (b - a)
 const clamp = (v: number, a: number, b: number) => Math.min(b, Math.max(a, v))
 
 export const SEAGULL = {
@@ -111,9 +112,26 @@ export const SEAGULL = {
     glide: [0.8, 2] as P2, // seconds of gliding
     randomSwoop: 0.06, // chance per second of a swoop down (when not too low)
     randomClimb: 0.05, // chance per second of a short climb (when not too high)
-    firstSpawn: [8, 20] as P2, // seconds until the first gull
-    spawnEvery: [25, 70] as P2, // seconds between gulls
-    maxGulls: 2,
+    // spawning is done by ONE user (the "leader") and sent to everyone,
+    // so all users see the same gull at the same time
+    firstSpawn: [60, 180] as P2, // seconds until the first gull (after becoming leader)
+    spawnEvery: [180, 420] as P2, // seconds between gulls
+    maxGulls: 1,
+    step: 1 / 60, // fixed simulation step (same path on every computer)
+    virtualScreen: { w: 1600, h: 900 } as ScreenSize, // speeds are computed for this size
+  },
+
+  // ---- catching: click a gull -> wave + score ----
+  catch: {
+    hitRadius: 0.45, // part of the gull width that counts as a hit
+    wave: {
+      duration: 1.8, // seconds
+      rings: 3,
+      ringDelay: 0.18, // seconds between rings
+      radius: 0.2, // final ring size, part of the screen width
+      band: 14, // ring thickness in px
+      color: '#8a8a8a',
+    },
   },
 
   // ---- drawing ----
@@ -213,9 +231,25 @@ function bezD(P: P2[], u: number): P2 {
     a * (P[1][1] - P[0][1]) + b * (P[2][1] - P[1][1]) + c * (P[3][1] - P[2][1])]
 }
 
+// =========================== seeded randomness =============================
+// Same seed -> same numbers on every computer -> same flight path everywhere.
+
+export function seededRandom(seed: number) {
+  let a = seed >>> 0
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0
+    let t = a
+    t = Math.imul(t ^ (t >>> 15), t | 1)
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61)
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  }
+}
+
 // ============================ one flying gull ==============================
 
-type Gull = {
+export type Gull = {
+  id: string
+  rnd: () => number // this gull's own random numbers (from its seed)
   x: number; y: number // 0..1 of the screen
   vx: number; vy: number // per second
   heading: number // +1 = to the right, -1 = to the left
@@ -228,38 +262,82 @@ type Gull = {
   pose: Pose
 }
 
-export type ScreenSize = { w: number; h: number } // px
+export type Wave = { x: number; y: number; age: number; label: string }
 
-/** Gulls that appear at random times and cross the screen. */
+/**
+ * Gulls crossing the screen + catch waves.
+ * Only the leader spawns gulls (onSpawn tells the others); everyone else
+ * adds them with addGull(id, seed) and gets exactly the same flight.
+ */
 export class SeagullFlock {
   gulls: Gull[] = []
-  private nextSpawn = rand(...SEAGULL.flight.firstSpawn)
+  waves: Wave[] = []
+  leader = false
+  onSpawn: ((id: string, seed: number) => void) | null = null
+  private nextSpawn = 0
+  private acc = 0
+
+  constructor() {
+    this.resetTimer(true)
+  }
+
+  resetTimer(first = false) {
+    const [a, b] = first ? SEAGULL.flight.firstSpawn : SEAGULL.flight.spawnEvery
+    this.nextSpawn = a + Math.random() * (b - a)
+  }
 
   /** margin outside the screen (part of the width) where a gull starts / ends */
   private margin() {
     return SEAGULL.render.size * 0.6 + 0.02
   }
 
-  spawn() {
-    const F = SEAGULL.flight
-    const heading = Math.random() < 0.5 ? 1 : -1
+  has(id: string) {
+    return this.gulls.some((g) => g.id === id)
+  }
+
+  /** Leader: make a new gull and tell everyone. */
+  spawnNew() {
+    const id = Math.random().toString(36).slice(2, 10)
+    const seed = Math.floor(Math.random() * 4294967296)
+    this.addGull(id, seed)
+    this.onSpawn?.(id, seed)
+  }
+
+  /** Adds a gull from its id + seed (same seed -> same flight everywhere). */
+  addGull(id: string, seed: number) {
+    if (this.has(id)) return
+    const F = SEAGULL.flight, R = SEAGULL.render
+    const rnd = seededRandom(seed)
+    const r = (a: number, b: number) => a + rnd() * (b - a)
+    const heading = rnd() < 0.5 ? 1 : -1
     const m = this.margin()
-    const g: Gull = {
+    const v = r(R.viewYaw[0], R.viewYaw[1])
+    this.gulls.push({
+      id, rnd,
       x: heading > 0 ? -m : 1 + m,
-      y: rand(...F.startY),
+      y: r(F.startY[0], F.startY[1]),
       vx: heading * F.move.level[0], vy: 0,
       heading,
-      yaw: 0, tilt: rand(...SEAGULL.render.tilt),
+      yaw: heading > 0 ? v : Math.PI - v, // facing right / left
+      tilt: r(R.tilt[0], R.tilt[1]),
       action: 'level', prev: 'level', blend: 1,
-      t: Math.random(), actT: 0,
-      flapsLeft: Math.round(rand(...F.flaps)), glideLeft: 0,
+      t: rnd(), actT: 0,
+      flapsLeft: Math.round(r(F.flaps[0], F.flaps[1])), glideLeft: 0,
       climbTo: 0,
       path: null,
       pose: SEAGULL.actions.level.pose(0),
-    }
-    const v = rand(...SEAGULL.render.viewYaw)
-    g.yaw = heading > 0 ? v : Math.PI - v // facing right / left
-    this.gulls.push(g)
+    })
+  }
+
+  remove(id: string) {
+    this.gulls = this.gulls.filter((g) => g.id !== id)
+  }
+
+  /** Starts a catch wave at (x, y) = 0..1 of the screen. */
+  addWave(x: number, y: number, label: string): Wave {
+    const w = { x, y, age: 0, label }
+    this.waves.push(w)
+    return w
   }
 
   private setAction(g: Gull, a: ActionKey) {
@@ -273,132 +351,153 @@ export class SeagullFlock {
 
   // glide down / dive along a curve that starts in the current flight direction,
   // is steepest in the middle and arrives level
-  private startSwoop(g: Gull, dist: number, ty: number, kind: 'down' | 'dive', s: ScreenSize) {
-    const F = SEAGULL.flight
+  private startSwoop(g: Gull, dist: number, ty: number, kind: 'down' | 'dive') {
+    const F = SEAGULL.flight, S = F.virtualScreen
     const tx = g.x + g.heading * dist
     const L = Math.abs(tx - g.x), D = ty - g.y
-    let ux = g.vx * s.w, uy = g.vy * s.h
+    let ux = g.vx * S.w, uy = g.vy * S.h
     if (Math.hypot(ux, uy) < 1e-3) { ux = g.heading; uy = 0 }
     const ul = Math.hypot(ux, uy)
-    const k = Math.hypot(L * s.w, D * s.h) * (kind === 'dive' ? 0.18 : 0.3)
+    const k = Math.hypot(L * S.w, D * S.h) * (kind === 'dive' ? 0.18 : 0.3)
     const P: P2[] = [
       [g.x, g.y],
-      [g.x + ((ux / ul) * k) / s.w, Math.max(0.04, g.y + ((uy / ul) * k) / s.h)],
+      [g.x + ((ux / ul) * k) / S.w, Math.max(0.04, g.y + ((uy / ul) * k) / S.h)],
       [tx - g.heading * L * (kind === 'dive' ? 0.35 : 0.5), ty],
       [tx, ty],
     ]
-    g.path = { P, u: 0, peak: (kind === 'dive' ? F.swoopDive : F.swoopDown) * s.w }
+    g.path = { P, u: 0, peak: (kind === 'dive' ? F.swoopDive : F.swoopDown) * S.w }
     this.setAction(g, kind)
   }
 
   // decide what to do: keep the height between `high` and `low`
-  private think(g: Gull, dt: number, s: ScreenSize) {
+  private think(g: Gull, dt: number) {
     const F = SEAGULL.flight
+    const r = (a: number, b: number) => a + g.rnd() * (b - a)
     if (g.path) return
     if (g.action === 'climb') {
       if (g.y > g.climbTo) return // keep climbing
       this.setAction(g, 'level')
-      g.flapsLeft = Math.round(rand(...F.flaps))
+      g.flapsLeft = Math.round(r(F.flaps[0], F.flaps[1]))
     }
     if (g.y < F.high) {
-      this.startSwoop(g, rand(0.25, 0.45), rand(0.35, 0.6), 'down', s)
+      this.startSwoop(g, r(0.25, 0.45), r(0.35, 0.6), 'down')
     } else if (g.y > F.low) {
-      g.climbTo = rand(0.4, 0.6)
+      g.climbTo = r(0.4, 0.6)
       this.setAction(g, 'climb')
-    } else if (g.y < 0.55 && Math.random() < F.randomSwoop * dt) {
-      const drop = rand(0.15, 0.3)
-      this.startSwoop(g, rand(0.2, 0.4), g.y + drop, Math.random() < 0.3 ? 'dive' : 'down', s)
-    } else if (g.y > 0.4 && Math.random() < F.randomClimb * dt) {
-      g.climbTo = g.y - rand(0.12, 0.22)
+    } else if (g.y < 0.55 && g.rnd() < F.randomSwoop * dt) {
+      const drop = r(0.15, 0.3)
+      this.startSwoop(g, r(0.2, 0.4), g.y + drop, g.rnd() < 0.3 ? 'dive' : 'down')
+    } else if (g.y > 0.4 && g.rnd() < F.randomClimb * dt) {
+      g.climbTo = g.y - r(0.12, 0.22)
       this.setAction(g, 'climb')
     } else if (g.action === 'glide') {
       g.glideLeft -= dt
       if (g.glideLeft <= 0) {
         this.setAction(g, 'level')
-        g.flapsLeft = Math.round(rand(...F.flaps))
+        g.flapsLeft = Math.round(r(F.flaps[0], F.flaps[1]))
       }
     } else if (g.action !== 'level') {
       this.setAction(g, 'level')
     }
   }
 
-  /** Moves every gull; spawns and removes gulls. dt in seconds. */
-  update(dt: number, s: ScreenSize) {
-    const F = SEAGULL.flight
-    const A = SEAGULL.actions
+  /** One fixed simulation step for one gull. */
+  private stepGull(g: Gull, dt: number) {
+    const F = SEAGULL.flight, A = SEAGULL.actions, S = F.virtualScreen
+    this.think(g, dt)
+    const act = A[g.action]
 
-    if (this.gulls.length < F.maxGulls) {
+    // run through the cycle; after N wing beats, glide a while
+    g.t += dt * act.hz * (act.flaps ? F.flapHz : 1)
+    if (g.t >= 1) {
+      g.t -= 1
+      if (g.action === 'level' && --g.flapsLeft <= 0) {
+        this.setAction(g, 'glide')
+        g.glideLeft = F.glide[0] + g.rnd() * (F.glide[1] - F.glide[0])
+      }
+    }
+    g.blend = Math.min(1, g.blend + dt / 0.45)
+    g.actT += dt
+
+    // how steep the swoop is right now (0 = level)
+    let steep = 0
+    if (g.path) {
+      const d = bezD(g.path.P, g.path.u)
+      steep = Math.atan2(d[1] * S.h, Math.abs(d[0]) * S.w + 1e-6)
+    }
+
+    // pose: blend from the previous action; on a swoop the wings fold where steep
+    const pNow = g.path
+      ? mixPose(A.down.pose(g.t), A.dive.pose(g.t), clamp((steep - 0.3) / 0.7, 0, 1))
+      : act.pose(g.t)
+    const pOld = A[g.prev].pose(A[g.prev].flaps === act.flaps ? g.t : 0)
+    const pose = g.blend < 1 ? mixPose(pOld, pNow, smooth(g.blend)) : pNow
+
+    if (g.path) {
+      // along the curve: fast in the steep middle, slower on the pull-out
+      const p = g.path
+      const v = p.peak * (0.45 + 0.55 * Math.sin(Math.PI * Math.min(1, p.u * 1.15)))
+      const d = bezD(p.P, p.u)
+      const len = Math.hypot(d[0] * S.w, d[1] * S.h) + 1e-6
+      p.u = Math.min(1, p.u + (v * dt) / len)
+      ;[g.x, g.y] = bez(p.P, p.u)
+      pose.pitch = lerp(pose.pitch, -Math.min(1.2, steep), smooth(Math.min(1, g.actT / 0.3)))
+      if (p.u >= 1) {
+        g.vx = (g.heading * v) / S.w
+        g.vy = 0
+        g.path = null
+        this.setAction(g, 'glide')
+        g.glideLeft = F.glide[0] + g.rnd() * (F.glide[1] - F.glide[0])
+      }
+    } else {
+      // speed eases towards the target speed -> curved changes of direction
+      const [fw, dn] = F.move[g.action as 'level' | 'climb' | 'glide'] ?? F.move.level
+      const k = Math.min(1, dt * F.steer)
+      g.vx += (g.heading * fw - g.vx) * k
+      g.vy += (dn - g.vy) * k
+      g.x += g.vx * dt
+      g.y = clamp(g.y + g.vy * dt, 0.04, 0.96)
+      if (!act.flaps) {
+        const ang = Math.atan2(g.vy * S.h, Math.abs(g.vx) * S.w + 1e-6)
+        pose.pitch = lerp(pose.pitch, clamp(-ang, -0.9, 0.3), 0.75 * smooth(g.blend))
+      }
+    }
+    g.pose = pose
+  }
+
+  /** Real time passed (seconds): spawn (leader), move gulls, age waves. */
+  update(dt: number) {
+    const F = SEAGULL.flight
+
+    if (this.leader && this.gulls.length < F.maxGulls) {
       this.nextSpawn -= dt
       if (this.nextSpawn <= 0) {
-        this.spawn()
-        this.nextSpawn = rand(...F.spawnEvery)
+        this.spawnNew()
+        this.resetTimer()
       }
     }
 
-    for (const g of this.gulls) {
-      this.think(g, dt, s)
-      const act = A[g.action]
-
-      // run through the cycle; after N wing beats, glide a while
-      g.t += dt * act.hz * (act.flaps ? F.flapHz : 1)
-      if (g.t >= 1) {
-        g.t -= 1
-        if (g.action === 'level' && --g.flapsLeft <= 0) {
-          this.setAction(g, 'glide')
-          g.glideLeft = rand(...F.glide)
-        }
-      }
-      g.blend = Math.min(1, g.blend + dt / 0.45)
-      g.actT += dt
-
-      // how steep the swoop is right now (0 = level)
-      let steep = 0
-      if (g.path) {
-        const d = bezD(g.path.P, g.path.u)
-        steep = Math.atan2(d[1] * s.h, Math.abs(d[0]) * s.w + 1e-6)
-      }
-
-      // pose: blend from the previous action; on a swoop the wings fold where steep
-      const pNow = g.path
-        ? mixPose(A.down.pose(g.t), A.dive.pose(g.t), clamp((steep - 0.3) / 0.7, 0, 1))
-        : act.pose(g.t)
-      const pOld = A[g.prev].pose(A[g.prev].flaps === act.flaps ? g.t : 0)
-      const pose = g.blend < 1 ? mixPose(pOld, pNow, smooth(g.blend)) : pNow
-
-      if (g.path) {
-        // along the curve: fast in the steep middle, slower on the pull-out
-        const p = g.path
-        const v = p.peak * (0.45 + 0.55 * Math.sin(Math.PI * Math.min(1, p.u * 1.15)))
-        const d = bezD(p.P, p.u)
-        const len = Math.hypot(d[0] * s.w, d[1] * s.h) + 1e-6
-        p.u = Math.min(1, p.u + (v * dt) / len)
-        ;[g.x, g.y] = bez(p.P, p.u)
-        pose.pitch = lerp(pose.pitch, -Math.min(1.2, steep), smooth(Math.min(1, g.actT / 0.3)))
-        if (p.u >= 1) {
-          g.vx = (g.heading * v) / s.w
-          g.vy = 0
-          g.path = null
-          this.setAction(g, 'glide')
-          g.glideLeft = rand(...F.glide)
-        }
-      } else {
-        // speed eases towards the target speed -> curved changes of direction
-        const [fw, dn] = F.move[g.action as 'level' | 'climb' | 'glide'] ?? F.move.level
-        const k = Math.min(1, dt * F.steer)
-        g.vx += (g.heading * fw - g.vx) * k
-        g.vy += (dn - g.vy) * k
-        g.x += g.vx * dt
-        g.y = clamp(g.y + g.vy * dt, 0.04, 0.96)
-        if (!act.flaps) {
-          const ang = Math.atan2(g.vy * s.h, Math.abs(g.vx) * s.w + 1e-6)
-          pose.pitch = lerp(pose.pitch, clamp(-ang, -0.9, 0.3), 0.75 * smooth(g.blend))
-        }
-      }
-      g.pose = pose
+    // fixed steps, so every computer computes the same path
+    this.acc = Math.min(this.acc + dt, 0.25)
+    while (this.acc >= F.step) {
+      this.acc -= F.step
+      for (const g of this.gulls) this.stepGull(g, F.step)
     }
 
     // gone past the other side -> remove
     const m = this.margin()
     this.gulls = this.gulls.filter((g) => (g.heading > 0 ? g.x < 1 + m : g.x > -m))
+
+    for (const w of this.waves) w.age += dt
+    this.waves = this.waves.filter((w) => w.age < SEAGULL.catch.wave.duration)
+  }
+
+  /** The gull under (px, py), if any (screen px). */
+  hitTest(px: number, py: number, s: ScreenSize): Gull | null {
+    const r = SEAGULL.render.size * s.w * SEAGULL.catch.hitRadius
+    for (const g of this.gulls) {
+      if (Math.hypot(px - g.x * s.w, py - g.y * s.h) <= r) return g
+    }
+    return null
   }
 }

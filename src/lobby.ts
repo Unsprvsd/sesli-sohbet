@@ -19,6 +19,32 @@ export type Presence = {
   sharing: boolean
   /** Admin proof: signature of my lobby user id ('' if not admin). */
   adminSig: string
+  /** Seagulls caught on this server (self-reported, like `speaking`). */
+  score?: number
+}
+
+/**
+ * Seagull game messages (lobby action 'gull'):
+ * spawn  - the leader sends a new gull (everyone simulates it from the seed)
+ * hit    - someone clicked the gull (sent to everyone; the leader decides)
+ * caught - the leader's decision: who caught it, and where
+ */
+export type GullMsg =
+  | { t: 'spawn'; id: string; seed: number }
+  | { t: 'hit'; id: string; x: number; y: number }
+  | { t: 'caught'; id: string; uid: string; x: number; y: number }
+
+export type GullListener = (msg: GullMsg, fromUserId: string) => void
+
+function isGullMsg(m: unknown): m is GullMsg {
+  if (!m || typeof m !== 'object') return false
+  const x = m as Record<string, unknown>
+  if (typeof x.id !== 'string' || x.id.length > 16) return false
+  const num = (v: unknown) => typeof v === 'number' && Number.isFinite(v)
+  if (x.t === 'spawn') return num(x.seed)
+  if (x.t === 'hit') return num(x.x) && num(x.y)
+  if (x.t === 'caught') return typeof x.uid === 'string' && x.uid.length <= 128 && num(x.x) && num(x.y)
+  return false
 }
 
 export type OnlineUser = Presence & { id: string; self: boolean; admin?: boolean }
@@ -46,6 +72,7 @@ const initialPresence = (name: string): Presence => ({
   speaking: false,
   sharing: false,
   adminSig: '',
+  score: 0,
 })
 
 function isValidMessage(m: unknown): m is ChatMessage {
@@ -100,6 +127,8 @@ export function useLobby(name: string, password: string, srv: string, epoch: num
   const presenceRef = useRef<UserState<Presence> | null>(null)
   const chatRef = useRef<MessageAction<ChatMessage[]> | null>(null)
   const configActionRef = useRef<MessageAction<SignedConfig> | null>(null)
+  const gullActionRef = useRef<MessageAction<GullMsg> | null>(null)
+  const gullListenersRef = useRef(new Set<GullListener>())
   const refreshRef = useRef<() => void>(() => {})
   const messagesRef = useRef<ChatMessage[]>([])
   // Survives reconnects, so my state is restored after rejoining.
@@ -160,9 +189,11 @@ export function useLobby(name: string, password: string, srv: string, epoch: num
     })
     const chat = room.makeAction<ChatMessage[]>('chat')
     const configAction = room.makeAction<SignedConfig>('config')
+    const gullAction = room.makeAction<GullMsg>('gull')
     presenceRef.current = presence
     chatRef.current = chat
     configActionRef.current = configAction
+    gullActionRef.current = gullAction
 
     let selfUserId = ''
 
@@ -199,6 +230,10 @@ export function useLobby(name: string, password: string, srv: string, epoch: num
       chat.onMessage((data) => {
         if (Array.isArray(data)) addMessages(data)
       }),
+      gullAction.onMessage((data, ctx) => {
+        if (!isGullMsg(data)) return
+        for (const fn of gullListenersRef.current) fn(data, ctx.userId)
+      }),
       room.onError((e) => {
         if (e.code === 'decrypt-failed') {
           setDecryptFailed(true)
@@ -228,6 +263,7 @@ export function useLobby(name: string, password: string, srv: string, epoch: num
       presenceRef.current = null
       chatRef.current = null
       configActionRef.current = null
+      gullActionRef.current = null
       room.leave()
     }
   }, [name, password, srv, epoch, addMessages, acceptConfig])
@@ -267,6 +303,19 @@ export function useLobby(name: string, password: string, srv: string, epoch: num
     [selfId, name, addMessages],
   )
 
+  /** Seagull game: send a message to everyone in the lobby. */
+  const sendGull = useCallback((msg: GullMsg) => {
+    gullActionRef.current?.send(msg).catch(() => {})
+  }, [])
+
+  /** Seagull game: listen for messages from others. Returns "stop listening". */
+  const onGull = useCallback((fn: GullListener) => {
+    gullListenersRef.current.add(fn)
+    return () => {
+      gullListenersRef.current.delete(fn)
+    }
+  }, [])
+
   return {
     users,
     status,
@@ -278,5 +327,7 @@ export function useLobby(name: string, password: string, srv: string, epoch: num
     updatePresence,
     sendChat,
     publishConfig,
+    sendGull,
+    onGull,
   }
 }

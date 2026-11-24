@@ -88,7 +88,41 @@ export default function Lobby({ name, serverName, srv, password, onLogout, onFai
     updatePresence,
     sendChat,
     publishConfig,
+    sendGull,
+    onGull,
   } = useLobby(name, password, srv, lobbyEpoch)
+
+  // --- seagull game -------------------------------------------------------
+  // My score is kept in this browser (per server) and shared via presence.
+  const scoreKey = `sesli-sohbet:gulls:${srv}`
+  const [gullScore, setGullScore] = useState(() => {
+    try {
+      return Math.max(0, Math.floor(Number(localStorage.getItem(scoreKey)) || 0))
+    } catch {
+      return 0
+    }
+  })
+  useEffect(() => {
+    updatePresence({ score: gullScore })
+  }, [gullScore, updatePresence])
+  // The "leader" (smallest user id online) spawns gulls and decides catches.
+  const gullLeader = useMemo(() => rawUsers.map((u) => u.id).sort()[0] ?? '', [rawUsers])
+  const nameOf = useCallback((uid: string) => rawUsers.find((u) => u.id === uid)?.name ?? '', [rawUsers])
+  const onGullCaught = useCallback(
+    (uid: string) => {
+      if (uid !== selfId) return
+      setGullScore((s) => {
+        const next = s + 1
+        try {
+          localStorage.setItem(scoreKey, String(next))
+        } catch {
+          /* storage blocked: score lives only in this tab */
+        }
+        return next
+      })
+    },
+    [selfId, scoreKey],
+  )
 
   const voiceRooms = config?.voice ?? []
   const textChannels = config?.text ?? []
@@ -495,7 +529,14 @@ export default function Lobby({ name, serverName, srv, password, onLogout, onFai
   return (
     <div className="layout">
       <AsciiStream />
-      <AsciiSeagulls />
+      <AsciiSeagulls
+        selfId={selfId}
+        isLeader={!!selfId && gullLeader === selfId}
+        sendGull={sendGull}
+        onGull={onGull}
+        nameOf={nameOf}
+        onCaught={onGullCaught}
+      />
       <aside className="sidebar">
         <div className="server-name">
           <span>{config.name}</span>
@@ -754,6 +795,11 @@ export default function Lobby({ name, serverName, srv, password, onLogout, onFai
             <li key={u.id}>
               {u.admin ? <Crown /> : <span className="dot online" />}
               <UserName user={u} />
+              {typeof u.score === 'number' && Number.isFinite(u.score) && u.score > 0 && (
+                <span className="score" title="Seagulls caught">
+                  ~v~ {Math.min(99999, Math.floor(u.score))}
+                </span>
+              )}
               {u.voiceRoom && <small>{roomOf(u.voiceRoom)}</small>}
             </li>
           ))}
