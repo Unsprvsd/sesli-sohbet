@@ -4,16 +4,20 @@ const FONT_SIZE = 14
 const CHARS = '@#&%$*+=~-:;,.'
 // Space between letters, in letter widths (>1 so each letter can be read).
 const SPACING = 1.6
-// Lanes: height of each fixed line on the screen (0..1).
-const LANES = [0.17, 0.39, 0.62, 0.84]
-// Brightness (grey level on black): resting letter / fully lit letter.
-const BASE = 0x10
+// How many glows can be on the screen at the same time.
+const COUNT = 4
+// Brightness (grey level on black): resting letter (0 = invisible) / brightest.
+const BASE = 0
 const PEAK = 0x48
-// Glow: how many letters it takes to light up (in front) and to fade (behind).
-const RISE = 5
-const FADE = 28
+// Glow: letters from the brightest one until it is gone (in front / behind).
+const RISE = 10
+const FADE = 10
+// Keep glows at least this far apart in height (part of the screen, 0..1).
+const MIN_GAP = 0.08
 
 type Glow = {
+  y: number // height on the screen (0..1), new random value for each glow
+  line: string // random letters of this glow's line
   pos: number // position of the glow, in letters (can be outside the line)
   dir: number // -1 = right to left, +1 = left to right
   speed: number // letters per second
@@ -25,10 +29,16 @@ function rand(a: number, b: number) {
   return a + Math.random() * (b - a)
 }
 
+function randomLine(cols: number) {
+  let s = ''
+  for (let i = 0; i < cols; i++) s += CHARS[Math.floor(Math.random() * CHARS.length)]
+  return s
+}
+
 /**
- * Faint, fixed ASCII lines behind the server screen. The letters never move;
- * a soft glow travels along each line, lighting the letters up one by one,
- * and the letters it leaves behind slowly fade back.
+ * Faint ASCII glows behind the server screen. Each glow runs along an
+ * invisible line of fixed letters at a random height: the letters never move,
+ * they light up as the glow reaches them and fade again about 10 letters later.
  */
 export default function AsciiStream() {
   const ref = useRef<HTMLCanvasElement>(null)
@@ -42,7 +52,6 @@ export default function AsciiStream() {
     const font = getComputedStyle(document.body).fontFamily || 'monospace'
     let step = 13
     let cols = 0
-    let lines: string[] = []
 
     const resize = () => {
       const dpr = window.devicePixelRatio || 1
@@ -53,26 +62,32 @@ export default function AsciiStream() {
       ctx.textBaseline = 'middle'
       step = (ctx.measureText('M').width || 8) * SPACING
       cols = Math.ceil(window.innerWidth / step) + 1
-      // fixed random letters for each line
-      lines = LANES.map(() => {
-        let s = ''
-        for (let i = 0; i < cols; i++) s += CHARS[Math.floor(Math.random() * CHARS.length)]
-        return s
-      })
+      for (const g of glows) if (g.line.length < cols) g.line = randomLine(cols)
     }
 
     const start = (g: Glow) => {
+      // random height, not too close to the other glows on the screen
+      let y = rand(0.06, 0.94)
+      for (let tries = 0; tries < 12; tries++) {
+        if (glows.every((o) => o === g || !o.running || Math.abs(o.y - y) >= MIN_GAP)) break
+        y = rand(0.06, 0.94)
+      }
+      g.y = y
+      g.line = randomLine(cols)
       g.running = true
       g.dir = Math.random() < 0.5 ? -1 : 1
       g.speed = rand(6, 11)
       g.pos = g.dir > 0 ? -RISE : cols + RISE
     }
 
-    const glows: Glow[] = LANES.map(() => ({
+    // first starts are spread out, so the glows do not run side by side
+    const glows: Glow[] = Array.from({ length: COUNT }, (_, i) => ({
+      y: 0,
+      line: '',
       pos: 0,
       dir: 1,
       speed: 0,
-      wait: rand(0.2, 4),
+      wait: i * 1.5 + rand(0.2, 1.5),
       running: false,
     }))
 
@@ -90,16 +105,19 @@ export default function AsciiStream() {
     const draw = () => {
       const h = window.innerHeight
       ctx.clearRect(0, 0, window.innerWidth, h)
-      LANES.forEach((lane, li) => {
-        const y = Math.round(lane * h)
-        const g = glows[li]
-        const line = lines[li]
-        for (let i = 0; i < cols; i++) {
+      for (const g of glows) {
+        if (!g.running) continue
+        const y = Math.round(g.y * h)
+        // only the letters near the glow can be visible
+        const from = Math.max(0, Math.floor(g.pos - Math.max(RISE, FADE)) - 1)
+        const to = Math.min(cols - 1, Math.ceil(g.pos + Math.max(RISE, FADE)) + 1)
+        for (let i = from; i <= to; i++) {
           const c = level(i, g)
+          if (c <= 0) continue
           ctx.fillStyle = `rgb(${c},${c},${c})`
-          ctx.fillText(line[i], i * step, y)
+          ctx.fillText(g.line[i], i * step, y)
         }
-      })
+      }
     }
 
     let raf = 0
