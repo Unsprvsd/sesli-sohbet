@@ -260,10 +260,52 @@ export function useVoice(opts: Options) {
   return { error, peerCount, ready, screens }
 }
 
+/** Screen share quality presets. Higher = more upload per viewer. */
+export const SCREEN_QUALITIES = [
+  { id: '480p30', label: '480p · 30 fps (weak internet)', width: 854, height: 480, fps: 30 },
+  { id: '720p30', label: '720p · 30 fps', width: 1280, height: 720, fps: 30 },
+  { id: '1080p15', label: '1080p · 15 fps (sharp text)', width: 1920, height: 1080, fps: 15 },
+  { id: '1080p30', label: '1080p · 30 fps', width: 1920, height: 1080, fps: 30 },
+  { id: '1080p60', label: '1080p · 60 fps (games, fast internet)', width: 1920, height: 1080, fps: 60 },
+] as const
+
+export type ScreenQuality = (typeof SCREEN_QUALITIES)[number]
+export const DEFAULT_SCREEN_QUALITY = '720p30'
+
+export function findScreenQuality(id: string): ScreenQuality {
+  return SCREEN_QUALITIES.find((q) => q.id === id) ?? SCREEN_QUALITIES[1]
+}
+
+function videoConstraints(q: ScreenQuality): MediaTrackConstraints {
+  return {
+    width: { max: q.width },
+    height: { max: q.height },
+    frameRate: { ideal: q.fps, max: q.fps },
+  }
+}
+
+/**
+ * Changes the quality of a running screen share (no need to restart it).
+ * Returns the size and fps the browser actually sends.
+ */
+export async function applyScreenQuality(stream: MediaStream, q: ScreenQuality) {
+  const video = stream.getVideoTracks()[0]
+  if (!video) return null
+  // 'motion' keeps it smooth (games), 'detail' keeps text sharp.
+  video.contentHint = q.fps >= 60 ? 'motion' : 'detail'
+  try {
+    await video.applyConstraints(videoConstraints(q))
+  } catch {
+    /* browser could not change it; keep what we have */
+  }
+  const s = video.getSettings()
+  return { width: s.width ?? 0, height: s.height ?? 0, fps: Math.round(s.frameRate ?? 0) }
+}
+
 /** Asks the browser for a screen / window / tab to share. */
-export async function startScreenShare(): Promise<MediaStream> {
+export async function startScreenShare(q: ScreenQuality): Promise<MediaStream> {
   const options = {
-    video: { frameRate: { ideal: 30, max: 30 }, width: { max: 1920 }, height: { max: 1080 } },
+    video: videoConstraints(q),
     audio: true, // tab audio (e.g. a YouTube tab)
     systemAudio: 'exclude', // whole-screen audio would echo our voice chat back
     selfBrowserSurface: 'exclude', // don't offer this tab (mirror effect)

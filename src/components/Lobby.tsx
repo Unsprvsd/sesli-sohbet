@@ -14,7 +14,15 @@ import {
 } from '../server'
 import { useSameDeviceTabs } from '../sameDevice'
 import { keyLabel, useSetting } from '../settings'
-import { canShareScreen, startScreenShare, useVoice } from '../voice'
+import {
+  DEFAULT_SCREEN_QUALITY,
+  SCREEN_QUALITIES,
+  applyScreenQuality,
+  canShareScreen,
+  findScreenQuality,
+  startScreenShare,
+  useVoice,
+} from '../voice'
 import { Crown, LOGO_SMALL, Speaker } from './Bits'
 import Chat from './Chat'
 import ScreenView from './ScreenView'
@@ -248,6 +256,10 @@ export default function Lobby({ name, serverName, srv, password, onLogout, onFai
 
   // --- screen sharing ---------------------------------------------------
   const [screen, setScreen] = useState<MediaStream | null>(null)
+  const [qualityId, setQualityId] = useSetting('screenQuality', DEFAULT_SCREEN_QUALITY)
+  const quality = findScreenQuality(qualityId)
+  /** What the browser really sends, e.g. "1280×720 · 30 fps". */
+  const [sending, setSending] = useState('')
   const [shareError, setShareError] = useState<string | null>(null)
   const [watchUid, setWatchUid] = useState<string | null>(null)
 
@@ -262,10 +274,9 @@ export default function Lobby({ name, serverName, srv, password, onLogout, onFai
     if (screen) return stopShare()
     setShareError(null)
     try {
-      const s = await startScreenShare()
+      const s = await startScreenShare(quality)
       const video = s.getVideoTracks()[0]
       if (video) {
-        video.contentHint = 'detail' // keep text sharp
         // The browser's own "Stop sharing" bar ends the track.
         video.addEventListener('ended', stopShare)
       }
@@ -277,6 +288,21 @@ export default function Lobby({ name, serverName, srv, password, onLogout, onFai
       }
     }
   }
+
+  // Apply the chosen quality when sharing starts and whenever it changes.
+  useEffect(() => {
+    if (!screen) {
+      setSending('')
+      return
+    }
+    let alive = true
+    applyScreenQuality(screen, quality).then((r) => {
+      if (alive && r) setSending(`${r.width}×${r.height} · ${r.fps} fps`)
+    })
+    return () => {
+      alive = false
+    }
+  }, [screen, quality])
 
   // Leaving the voice room ends my share and my watching.
   useEffect(() => {
@@ -644,7 +670,18 @@ export default function Lobby({ name, serverName, srv, password, onLogout, onFai
             <div className="sharing-bar">
               <span>
                 <span className="tag live">LIVE</span> You are sharing your screen
+                {sending && <small className="muted"> · {sending}</small>}
               </span>
+              <label className="quality">
+                <span>Quality</span>
+                <select value={quality.id} onChange={(e) => setQualityId(e.target.value)}>
+                  {SCREEN_QUALITIES.map((q) => (
+                    <option key={q.id} value={q.id}>
+                      {q.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
               <button className="btn ghost" onClick={stopShare}>
                 Stop
               </button>

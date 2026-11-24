@@ -658,6 +658,7 @@ pre.logo {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  overflow-x: hidden;
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -928,8 +929,42 @@ pre.logo {
   font-size: 13px;
 }
 
+.sharing-bar {
+  flex-wrap: wrap;
+}
+
+.sharing-bar > span:first-child {
+  flex: 1;
+  min-width: 200px;
+}
+
 .sharing-bar .btn {
   padding: 4px 12px;
+}
+
+.quality {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  max-width: 100%;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.quality select {
+  min-width: 0;
+  max-width: 100%;
+  font: 12px var(--font);
+}
+
+.quality select,
+.settings select {
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--line-2);
+  padding: 4px 6px;
+  font-size: 12px;
 }
 
 .screen-view {
