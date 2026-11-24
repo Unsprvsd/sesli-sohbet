@@ -1,6 +1,29 @@
 /* Design: "Clean lines" — white on black, one monospace font, thin divider
    lines, sharp corners, no colours. See vault/Design.md. */
 
+/* JetBrains Mono v2.304 (OFL-1.1, src/assets/fonts/OFL.txt), stored in the
+   project so no outside server is contacted. */
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('./assets/fonts/JetBrainsMono-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('./assets/fonts/JetBrainsMono-Medium.woff2') format('woff2');
+  font-weight: 500;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('./assets/fonts/JetBrainsMono-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-display: swap;
+}
+
 :root {
   --bg: #000;
   --text: #ededed;
@@ -134,6 +157,22 @@ button:disabled {
 
 .dot.offline {
   background: transparent;
+}
+
+.speaker {
+  width: 13px;
+  height: 11px;
+  flex: none;
+  fill: currentColor;
+  stroke: currentColor;
+  vertical-align: -1px;
+}
+
+.room-name .label,
+.voice-panel h3 {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
 }
 
 .crown {

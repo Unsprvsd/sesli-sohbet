@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { OnlineUser } from '../lobby'
+import { Speaker } from './Bits'
 import UserName from './UserName'
 
 type Props = {
@@ -44,7 +45,10 @@ export default function VoicePanel(p: Props) {
 
   return (
     <section className="voice-panel">
-      <h3>◉ {p.roomName}</h3>
+      <h3>
+        <Speaker />
+        {p.roomName}
+      </h3>
 
       <ul className="members" ref={listRef}>
         {p.members.map((u) => {

@@ -15,7 +15,7 @@ import {
 import { useSameDeviceTabs } from '../sameDevice'
 import { keyLabel, useSetting } from '../settings'
 import { canShareScreen, startScreenShare, useVoice } from '../voice'
-import { Crown, LOGO_SMALL } from './Bits'
+import { Crown, LOGO_SMALL, Speaker } from './Bits'
 import Chat from './Chat'
 import ScreenView from './ScreenView'
 import Settings from './Settings'
@@ -487,7 +487,10 @@ export default function Lobby({ name, serverName, srv, password, onLogout, onFai
                   disabled={inside}
                   title="Join room"
                 >
-                  <span>◉ {room.name}</span>
+                  <span className="label">
+                    <Speaker />
+                    {room.name}
+                  </span>
                   {members.length > 0 && <span className="count">{members.length}</span>}
                 </button>
                 {adminButtons('voice', room)}
