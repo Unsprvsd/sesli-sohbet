@@ -34,12 +34,12 @@ export function keyLabel(code: string): string {
   if (code.startsWith('Key')) return code.slice(3)
   if (code.startsWith('Digit')) return code.slice(5)
   const names: Record<string, string> = {
-    Space: 'Boşluk',
-    ShiftLeft: 'Sol Shift',
-    ShiftRight: 'Sağ Shift',
-    ControlLeft: 'Sol Ctrl',
-    ControlRight: 'Sağ Ctrl',
-    AltLeft: 'Sol Alt',
+    Space: 'Space',
+    ShiftLeft: 'Left Shift',
+    ShiftRight: 'Right Shift',
+    ControlLeft: 'Left Ctrl',
+    ControlRight: 'Right Ctrl',
+    AltLeft: 'Left Alt',
     Backquote: '"',
     CapsLock: 'Caps Lock',
   }

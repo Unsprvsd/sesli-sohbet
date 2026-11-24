@@ -134,14 +134,14 @@ export default function Lobby({ name, serverName, srv, password, onLogout }: Pro
 
   const addChannel = (kind: 'voice' | 'text') => {
     const list = kind === 'voice' ? voiceRooms : textChannels
-    if (list.length >= MAX_CHANNELS) return alert(`En fazla ${MAX_CHANNELS} tane olabilir.`)
-    const n = askName(kind === 'voice' ? 'Yeni ses odasının adı:' : 'Yeni yazı kanalının adı:')
+    if (list.length >= MAX_CHANNELS) return alert(`You can have at most ${MAX_CHANNELS}.`)
+    const n = askName(kind === 'voice' ? 'New voice room name:' : 'New text channel name:')
     if (!n) return
     editConfig((c) => ({ ...c, [kind]: [...c[kind], { id: newId(), name: n }] }))
   }
 
   const renameChannel = (kind: 'voice' | 'text', ch: Channel) => {
-    const n = askName('Yeni ad:', ch.name)
+    const n = askName('New name:', ch.name)
     if (!n || n === ch.name) return
     editConfig((c) => ({
       ...c,
@@ -151,19 +151,19 @@ export default function Lobby({ name, serverName, srv, password, onLogout }: Pro
 
   const deleteChannel = (kind: 'voice' | 'text', ch: Channel) => {
     const list = kind === 'voice' ? voiceRooms : textChannels
-    if (list.length <= 1) return alert('En az bir tane kalmalı.')
-    const what = kind === 'voice' ? 'ses odası' : 'yazı kanalı'
-    if (!window.confirm(`"${ch.name}" ${what} silinsin mi?`)) return
+    if (list.length <= 1) return alert('At least one must stay.')
+    const what = kind === 'voice' ? 'voice room' : 'text channel'
+    if (!window.confirm(`Delete ${what} "${ch.name}"?`)) return
     editConfig((c) => ({ ...c, [kind]: c[kind].filter((x) => x.id !== ch.id) }))
   }
 
   const adminButtons = (kind: 'voice' | 'text', ch: Channel) =>
     isAdmin && (
       <span className="admin-actions">
-        <button onClick={() => renameChannel(kind, ch)} title="Adını değiştir">
+        <button onClick={() => renameChannel(kind, ch)} title="Rename">
           ✏️
         </button>
-        <button onClick={() => deleteChannel(kind, ch)} title="Sil">
+        <button onClick={() => deleteChannel(kind, ch)} title="Delete">
           🗑️
         </button>
       </span>
@@ -256,7 +256,7 @@ export default function Lobby({ name, serverName, srv, password, onLogout }: Pro
     } catch (e) {
       // NotAllowedError = user pressed Cancel; that's not an error to show.
       if (!(e instanceof DOMException && e.name === 'NotAllowedError')) {
-        setShareError('Ekran paylaşımı başlatılamadı.')
+        setShareError('Could not start screen sharing.')
       }
     }
   }
@@ -371,26 +371,26 @@ export default function Lobby({ name, serverName, srv, password, onLogout }: Pro
   return (
     <div className="layout">
       <aside className="sidebar">
-        <div className="server-name" title={isAdmin ? 'Bu sunucunun yöneticisisin' : ''}>
+        <div className="server-name" title={isAdmin ? 'You are the admin of this server' : ''}>
           {isAdmin && '👑 '}
           {config?.name ?? serverName}
         </div>
         <div className="sidebar-head">
           <span className={`dot ${online ? status : 'offline'}`} />
-          {!online ? 'İnternet yok' : status === 'online' ? 'Bağlı' : 'Bağlanıyor…'}
+          {!online ? 'No internet' : status === 'online' ? 'Connected' : 'Connecting…'}
         </div>
 
         {!config && (
           <small className="hint">
-            Sunucu bilgisi bekleniyor… Şu an çevrimiçi kimse yoksa ya da sunucu adı / şifre
-            yanlışsa odalar görünmez.
+            Waiting for server info… Rooms will not show if nobody is online right now, or
+            if the server name / password is wrong.
           </small>
         )}
 
         <h2 className="section">
-          Ses odaları
+          Voice rooms
           {isAdmin && (
-            <button className="add" onClick={() => addChannel('voice')} title="Ses odası ekle">
+            <button className="add" onClick={() => addChannel('voice')} title="Add voice room">
               +
             </button>
           )}
@@ -405,7 +405,7 @@ export default function Lobby({ name, serverName, srv, password, onLogout }: Pro
                 className="room-name"
                 onClick={() => setMyRoom(room.id)}
                 disabled={inside}
-                title="Odaya katıl"
+                title="Join room"
               >
                 🔊 {room.name}
               </button>
@@ -423,9 +423,9 @@ export default function Lobby({ name, serverName, srv, password, onLogout }: Pro
         })}
 
         <h2 className="section">
-          Yazı kanalları
+          Text channels
           {isAdmin && (
-            <button className="add" onClick={() => addChannel('text')} title="Yazı kanalı ekle">
+            <button className="add" onClick={() => addChannel('text')} title="Add text channel">
               +
             </button>
           )}
@@ -451,10 +451,10 @@ export default function Lobby({ name, serverName, srv, password, onLogout }: Pro
           {myRoom && (
             <div className="voice-status">
               <div className={voice.ready ? 'ok' : 'wait'}>
-                {voice.ready ? 'Ses bağlı' : 'Ses bağlanıyor…'}
+                {voice.ready ? 'Voice connected' : 'Voice connecting…'}
               </div>
               <small>
-                {roomName} · {voice.peerCount} kişiyle bağlantı
+                {roomName} · connected to {voice.peerCount}
               </small>
             </div>
           )}
@@ -464,14 +464,14 @@ export default function Lobby({ name, serverName, srv, password, onLogout }: Pro
               className={`icon ${micMuted ? 'off' : ''}`}
               onClick={() => setMuted((m) => !m)}
               disabled={deafened}
-              title={micMuted ? 'Mikrofonu aç' : 'Mikrofonu kapat'}
+              title={micMuted ? 'Unmute' : 'Mute'}
             >
               {micMuted ? '🔇' : '🎤'}
             </button>
             <button
               className={`icon ${deafened ? 'off' : ''}`}
               onClick={() => setDeafened((d) => !d)}
-              title={deafened ? 'Sesi aç' : 'Sağırlaştır (kimseyi duyma)'}
+              title={deafened ? 'Undeafen' : 'Deafen (hear nobody)'}
             >
               {deafened ? '🔕' : '🎧'}
             </button>
@@ -479,19 +479,19 @@ export default function Lobby({ name, serverName, srv, password, onLogout }: Pro
               <button
                 className={`icon ${screen ? 'sharing' : ''}`}
                 onClick={toggleShare}
-                title={screen ? 'Paylaşımı durdur' : 'Ekranını paylaş'}
+                title={screen ? 'Stop sharing' : 'Share your screen'}
               >
                 🖥️
               </button>
             )}
-            <button className="icon" onClick={() => setShowSettings(true)} title="Ayarlar">
+            <button className="icon" onClick={() => setShowSettings(true)} title="Settings">
               ⚙️
             </button>
             {myRoom && (
               <button
                 className="icon leave"
                 onClick={() => setMyRoom(null)}
-                title="Odadan ayrıl"
+                title="Leave room"
               >
                 📞
               </button>
@@ -500,14 +500,14 @@ export default function Lobby({ name, serverName, srv, password, onLogout }: Pro
           {pttEnabled && myRoom && (
             <small className={`ptt-state ${transmit ? 'on' : ''}`}>
               {micMuted
-                ? 'Bas-konuş: mikrofon kapalı'
+                ? 'Push-to-talk: mic is muted'
                 : transmit
-                  ? 'Konuşuyorsun…'
-                  : `Konuşmak için ${keyLabel(pttKey)} tuşuna basılı tut`}
+                  ? 'Talking…'
+                  : `Hold ${keyLabel(pttKey)} to talk`}
             </small>
           )}
           <button className="link" onClick={onLogout}>
-            Çıkış yap
+            Log out
           </button>
         </div>
       </aside>
@@ -515,20 +515,20 @@ export default function Lobby({ name, serverName, srv, password, onLogout }: Pro
       <main className="content">
         {!online && (
           <div className="warning">
-            İnternet bağlantısı koptu. Geri gelince otomatik yeniden bağlanılacak.
+            Internet connection lost. It will reconnect automatically when it is back.
           </div>
         )}
         {warning && <div className="warning">{warning}</div>}
         {voice.error && <div className="warning">{voice.error}</div>}
         {sameDeviceTab && !deafened && (
           <div className="warning">
-            Bu bilgisayarda başka bir sekme de aynı odada. Hoparlör kullanıyorsan çınlama
-            (geri besleme) olur: kulaklık tak ya da bir sekmede 🎧 ile sesi kapat.
+            Another tab on this PC is in the same room. With speakers this causes ringing
+            (feedback): use headphones, or press 🎧 in one tab to turn its sound off.
           </div>
         )}
         {someoneMissing && (
           <div className="warning">
-            Odadaki herkesle ses bağlantısı kurulamadı. Otomatik tekrar deneniyor…
+            Could not connect voice to everyone in the room. Retrying automatically…
           </div>
         )}
 
@@ -549,8 +549,8 @@ export default function Lobby({ name, serverName, srv, password, onLogout }: Pro
 
         {screen && (
           <div className="sharing-bar">
-            <span>🔴 Ekranını paylaşıyorsun</span>
-            <button onClick={stopShare}>Durdur</button>
+            <span>🔴 You are sharing your screen</span>
+            <button onClick={stopShare}>Stop</button>
           </div>
         )}
 
@@ -575,7 +575,7 @@ export default function Lobby({ name, serverName, srv, password, onLogout }: Pro
       </main>
 
       <aside className="people">
-        <h2>Çevrimiçi — {users.length}</h2>
+        <h2>Online — {users.length}</h2>
         <ul className="online">
           {users.map((u) => (
             <li key={u.id}>

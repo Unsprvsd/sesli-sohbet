@@ -47,24 +47,24 @@ export default function Settings(p: Props) {
   return (
     <div className="backdrop" onClick={p.onClose}>
       <div className="card settings" onClick={(e) => e.stopPropagation()}>
-        <h2>Ayarlar</h2>
+        <h2>Settings</h2>
 
         <label>
-          Mikrofon
+          Microphone
           <select value={p.deviceId} onChange={(e) => p.onDeviceId(e.target.value)}>
-            <option value="">Varsayılan</option>
+            <option value="">Default</option>
             {mics
               .filter((m) => m.deviceId && m.deviceId !== 'default')
               .map((m, i) => (
                 <option key={m.deviceId} value={m.deviceId}>
-                  {m.label || `Mikrofon ${i + 1}`}
+                  {m.label || `Microphone ${i + 1}`}
                 </option>
               ))}
           </select>
         </label>
         {noLabels && (
           <small className="hint-small">
-            Mikrofon isimlerini görmek için önce bir odaya katılıp mikrofon izni ver.
+            To see microphone names, join a room first and allow microphone access.
           </small>
         )}
 
@@ -74,24 +74,24 @@ export default function Settings(p: Props) {
             checked={p.pttEnabled}
             onChange={(e) => p.onPttEnabled(e.target.checked)}
           />
-          Bas-konuş (sadece tuşa basılıyken mikrofon açık)
+          Push-to-talk (mic is on only while the key is held)
         </label>
 
         {p.pttEnabled && (
           <div className="ptt-key">
-            Tuş: <b>{keyLabel(p.pttKey)}</b>
+            Key: <b>{keyLabel(p.pttKey)}</b>
             <button onClick={() => setWaitingForKey(true)}>
-              {waitingForKey ? 'Bir tuşa bas… (Esc: iptal)' : 'Değiştir'}
+              {waitingForKey ? 'Press a key… (Esc: cancel)' : 'Change'}
             </button>
             <small className="hint-small">
-              Not: Tarayıcı, tuşu sadece bu sekme öndeyken algılar. Oyunun içindeyken çalışmaz.
-              Telefonda ekrandaki “Basılı tut” düğmesini kullan.
+              Note: the browser only detects the key while this tab is in front. It does not
+              work inside a game. On a phone, use the “Hold to talk” button on the screen.
             </small>
           </div>
         )}
 
         <button className="primary" onClick={p.onClose}>
-          Kapat
+          Close
         </button>
       </div>
     </div>

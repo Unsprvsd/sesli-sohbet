@@ -25,7 +25,7 @@ function linkify(text: string) {
 }
 
 function time(ts: number) {
-  return new Date(ts).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })
+  return new Date(ts).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
 }
 
 export default function Chat({ roomName, messages, myName, onSend }: Props) {
@@ -50,7 +50,7 @@ export default function Chat({ roomName, messages, myName, onSend }: Props) {
       <header className="chat-head"># {roomName}</header>
       <div className="chat-list" ref={listRef}>
         {messages.length === 0 && (
-          <p className="hint">Henüz mesaj yok. İlk mesajı sen yaz!</p>
+          <p className="hint">No messages yet. Be the first to write!</p>
         )}
         {messages.map((m) => (
           <div key={m.id} className="msg">
@@ -64,10 +64,10 @@ export default function Chat({ roomName, messages, myName, onSend }: Props) {
         <input
           value={text}
           onChange={(e) => setText(e.target.value)}
-          placeholder={`#${roomName} kanalına mesaj yaz`}
+          placeholder={`Message #${roomName}`}
           maxLength={MAX_MESSAGE_LENGTH}
         />
-        <button type="submit">Gönder</button>
+        <button type="submit">Send</button>
       </form>
     </section>
   )

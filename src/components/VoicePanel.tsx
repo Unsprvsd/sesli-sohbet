@@ -56,18 +56,18 @@ export default function VoicePanel(p: Props) {
                 {u.self ? (
                   <div className="member">
                     <UserName user={u} />
-                    {u.sharing && <span className="live">🔴 CANLI</span>}
+                    {u.sharing && <span className="live">🔴 LIVE</span>}
                   </div>
                 ) : (
                   <button
                     className={`member clickable ${open ? 'open' : ''}`}
                     onClick={() => setOpenId(open ? null : u.id)}
                     aria-expanded={open}
-                    title="Ses seviyesini ayarla"
+                    title="Set volume"
                   >
                     <UserName user={u} />
                     <span className="member-vol">
-                      {u.sharing && <span className="live">🔴 CANLI</span>}
+                      {u.sharing && <span className="live">🔴 LIVE</span>}
                       {volume !== 100 && ` ${volume}%`} ▾
                     </span>
                   </button>
@@ -77,15 +77,15 @@ export default function VoicePanel(p: Props) {
                     className={`watch ${p.watchUid === u.id ? 'on' : ''}`}
                     onClick={() => p.onWatch(p.watchUid === u.id ? null : u.id)}
                   >
-                    {p.watchUid === u.id ? 'Bırak' : 'İzle'}
+                    {p.watchUid === u.id ? 'Stop' : 'Watch'}
                   </button>
                 )}
               </div>
 
               {open && (
-                <div className="volume-popup" role="dialog" aria-label={`${u.name} ses seviyesi`}>
+                <div className="volume-popup" role="dialog" aria-label={`${u.name} volume`}>
                   <div className="volume-popup-head">
-                    <span>Kullanıcı ses seviyesi</span>
+                    <span>User volume</span>
                     <b>{volume}%</b>
                   </div>
                   <input
@@ -99,10 +99,10 @@ export default function VoicePanel(p: Props) {
                   />
                   <div className="volume-popup-actions">
                     <button onClick={() => p.onVolume(u.name, volume === 0 ? 100 : 0)}>
-                      {volume === 0 ? 'Sesini aç' : 'Sustur'}
+                      {volume === 0 ? 'Unmute' : 'Mute'}
                     </button>
                     <button onClick={() => p.onVolume(u.name, 100)} disabled={volume === 100}>
-                      Sıfırla
+                      Reset
                     </button>
                   </div>
                 </div>
@@ -121,7 +121,7 @@ export default function VoicePanel(p: Props) {
           onPointerCancel={() => p.onPttHold(false)}
           onContextMenu={(e) => e.preventDefault()}
         >
-          Konuşmak için basılı tut
+          Hold to talk
         </button>
       )}
     </section>

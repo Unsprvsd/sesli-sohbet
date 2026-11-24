@@ -199,9 +199,9 @@ export function useLobby(name: string, password: string, srv: string, epoch: num
       }),
       room.onError((e) => {
         if (e.code === 'decrypt-failed') {
-          setWarning('Bu sunucuda farklı şifre kullanan biri var. Şifreni kontrol et.')
+          setWarning('Someone on this server uses a different password. Check your password.')
         } else if (e.code === 'relay-failed') {
-          setWarning('Sinyal ağına bağlanılamadı. İnternet bağlantını kontrol et.')
+          setWarning('Could not reach the signaling network. Check your internet connection.')
         }
       }),
     ]

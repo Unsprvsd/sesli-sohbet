@@ -336,8 +336,8 @@ function startSpeakingDetection(stream: MediaStream, report: (speaking: boolean)
 
 function micErrorText(e: unknown): string {
   const name = e instanceof DOMException ? e.name : ''
-  if (name === 'NotAllowedError') return 'Mikrofon izni verilmedi. Tarayıcının adres çubuğundan izin ver.'
-  if (name === 'NotFoundError') return 'Mikrofon bulunamadı.'
-  if (name === 'NotReadableError') return 'Mikrofon başka bir uygulama tarafından kullanılıyor.'
-  return 'Mikrofon açılamadı.'
+  if (name === 'NotAllowedError') return 'Microphone permission denied. Allow it from the browser address bar.'
+  if (name === 'NotFoundError') return 'No microphone found.'
+  if (name === 'NotReadableError') return 'The microphone is being used by another app.'
+  return 'Could not open the microphone.'
 }

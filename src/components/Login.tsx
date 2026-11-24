@@ -42,21 +42,21 @@ export default function Login({ onLogin }: Props) {
     const s = cleanName(serverName, MAX_SERVER_NAME)
     if (!n || !s || !password) return
     if (mode === 'create' && password.length < 6) {
-      setError('Şifre en az 6 karakter olsun.')
+      setError('Password must be at least 6 characters.')
       return
     }
     setError(null)
     setBusy(true)
     try {
       if (mode === 'create' && (await createServer(s)) === 'exists') {
-        setError('Bu tarayıcıda bu isimde bir sunucu zaten var. "Katıl" ile gir.')
+        setError('This browser already has a server with this name. Use "Join" instead.')
         return
       }
       save(NAME_KEY, n)
       save(SERVER_KEY, s)
       onLogin({ name: n, serverName: s, srv: await serverKey(s), password })
     } catch {
-      setError('Bir hata oldu. Sayfayı yenileyip tekrar dene.')
+      setError('Something went wrong. Reload the page and try again.')
     } finally {
       setBusy(false)
     }
@@ -65,29 +65,29 @@ export default function Login({ onLogin }: Props) {
   return (
     <div className="center">
       <form className="card login" onSubmit={submit}>
-        <h1>Sesli Sohbet</h1>
+        <h1>Voice Chat</h1>
         <div className="tabs">
           <button
             type="button"
             className={mode === 'join' ? 'active' : ''}
             onClick={() => setMode('join')}
           >
-            Sunucuya katıl
+            Join server
           </button>
           <button
             type="button"
             className={mode === 'create' ? 'active' : ''}
             onClick={() => setMode('create')}
           >
-            Sunucu kur
+            Create server
           </button>
         </div>
         <label>
-          Kullanıcı adı
+          Username
           <input value={name} onChange={(e) => setName(e.target.value)} maxLength={24} required />
         </label>
         <label>
-          Sunucu adı
+          Server name
           <input
             value={serverName}
             onChange={(e) => setServerName(e.target.value)}
@@ -96,7 +96,7 @@ export default function Login({ onLogin }: Props) {
           />
         </label>
         <label>
-          Sunucu şifresi
+          Server password
           <input
             type="password"
             value={password}
@@ -106,7 +106,7 @@ export default function Login({ onLogin }: Props) {
         </label>
         {error && <div className="warning">{error}</div>}
         <button type="submit" disabled={busy}>
-          {mode === 'create' ? 'Sunucuyu kur' : 'Giriş yap'}
+          {mode === 'create' ? 'Create server' : 'Join'}
         </button>
       </form>
     </div>

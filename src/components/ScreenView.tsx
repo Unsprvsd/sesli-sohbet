@@ -37,19 +37,19 @@ export default function ScreenView({ name, stream, muted, volume, onClose }: Pro
   return (
     <section className="screen-view" ref={boxRef}>
       <div className="screen-head">
-        <span>🖥️ {name} ekranını paylaşıyor</span>
+        <span>🖥️ {name} is sharing their screen</span>
         <div className="screen-actions">
-          <button onClick={fullscreen} title="Tam ekran">
+          <button onClick={fullscreen} title="Full screen">
             ⛶
           </button>
-          <button onClick={onClose} title="İzlemeyi bırak">
+          <button onClick={onClose} title="Stop watching">
             ✕
           </button>
         </div>
       </div>
       <div className="screen-body">
         <video ref={videoRef} autoPlay playsInline onDoubleClick={fullscreen} />
-        {!stream && <div className="screen-wait">Bağlanıyor…</div>}
+        {!stream && <div className="screen-wait">Connecting…</div>}
       </div>
     </section>
   )

@@ -198,8 +198,8 @@ export async function createServer(serverName: string): Promise<'created' | 'exi
 
   const config: ServerConfig = {
     name: cleanName(serverName, MAX_SERVER_NAME),
-    voice: [{ id: newId(), name: 'Genel' }],
-    text: [{ id: newId(), name: 'genel' }],
+    voice: [{ id: newId(), name: 'General' }],
+    text: [{ id: newId(), name: 'general' }],
     adminKey: JSON.stringify(pub),
     ts: Date.now(),
   }
