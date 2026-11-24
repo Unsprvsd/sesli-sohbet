@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { SEAGULL, SeagullFlock, drawGull, type Wave } from '../seagull'
+import { SETTINGS, SHAPE, SeagullFlock, drawGull, type Wave } from '../seagull'
 import type { GullListener, GullMsg } from '../lobby'
 
 type Props = {
@@ -17,7 +17,7 @@ type Props = {
  * ASCII seagulls behind the server screen, the same for everyone:
  * the leader sends "spawn" (id + seed) and every browser flies the same gull.
  * Clicking a gull -> "hit" -> the leader sends "caught" -> wave + score.
- * All settings: SEAGULL in src/seagull.ts.
+ * Look / motion / settings: src/seagull/shape.ts, sheets.ts, settings.ts.
  */
 export default function AsciiSeagulls({ selfId, isLeader, sendGull, onGull, nameOf, onCaught }: Props) {
   const ref = useRef<HTMLCanvasElement>(null)
@@ -83,7 +83,7 @@ export default function AsciiSeagulls({ selfId, isLeader, sendGull, onGull, name
     if (!canvas || !ctx) return
     const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
-    const R = SEAGULL.render
+    const R = SETTINGS.render
     const font = getComputedStyle(document.body).fontFamily || 'monospace'
     // hidden low-res canvas: 1 pixel = 1 letter cell
     const off = document.createElement('canvas')
@@ -129,10 +129,10 @@ export default function AsciiSeagulls({ selfId, isLeader, sendGull, onGull, name
     }
 
     const ramp = R.ramp
-    const W = SEAGULL.catch.wave
+    const W = SETTINGS.catch.wave
 
     const drawGulls = (ratio: number) => {
-      const s = (cols * R.size) / SEAGULL.shape.width
+      const s = (cols * R.size) / SHAPE.width
       const rx = Math.ceil(s * 30) + 2 // half size of the area around a gull, in cells
       const ry = Math.ceil(s * 30 * ratio) + 2
       octx.setTransform(1, 0, 0, 1, 0, 0)

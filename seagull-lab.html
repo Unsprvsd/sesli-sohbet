@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Seagull Lab</title>
+<!-- Dev only (localhost:5180/seagull-lab.html). Not part of the live site:
+     the build only includes index.html. Uses the same files as the app:
+     src/seagull/shape.ts, sheets.ts, settings.ts. -->
+<style>
+  :root { --bg: #000; --text: #e6e6e6; --muted: #7c7c7c; --line: #262626; }
+  html, body { margin: 0; min-height: 100%; background: var(--bg); color: var(--text);
+    font: 13px/1.4 'JetBrains Mono', Consolas, 'Courier New', monospace; }
+  #view { position: fixed; inset: 0; width: 100%; height: 100%; }
+  .panel { position: fixed; top: 12px; left: 12px; z-index: 1; display: flex; flex-direction: column;
+    gap: 8px; padding: 12px; background: rgba(0,0,0,.85); border: 1px solid var(--line); max-width: calc(100vw - 48px); }
+  .row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  button, select { background: transparent; color: var(--text); border: 1px solid #3a3a3a; padding: 4px 10px;
+    font: inherit; cursor: pointer; }
+  select option { background: #000; }
+  button.on { background: var(--text); color: #000; }
+  label { color: var(--muted); display: flex; gap: 8px; align-items: center; justify-content: space-between; }
+  input[type=range] { width: 130px; accent-color: #ddd; }
+  .hint { color: var(--muted); font-size: 11px; }
+  [hidden] { display: none !important; }
+  #sheet { padding: 170px 16px 32px; position: relative; }
+  .act { margin: 0 0 28px; }
+  .act h3 { margin: 0 0 2px; font-size: 13px; }
+  .act p { margin: 0 0 8px; color: var(--muted); font-size: 11px; }
+  .frames { display: flex; flex-wrap: wrap; gap: 6px; }
+  .fr { border: 1px solid var(--line); }
+  .fr span { display: block; color: var(--muted); font-size: 10px; padding: 2px 4px; border-bottom: 1px solid var(--line); }
+  .fr pre { margin: 0; padding: 4px; color: #d8d8d8; font: 6px/7px 'JetBrains Mono', Consolas, monospace; }
+</style>
+</head>
+<body>
+<canvas id="view"></canvas>
+<div class="panel">
+  <div class="row">
+    <button data-tab="sheets" class="on">Animation sheets</button>
+    <button data-tab="preview">Preview</button>
+    <button data-tab="flight">Flight (app)</button>
+  </div>
+  <div class="row" data-for="sheets">
+    <label>View
+      <select id="sheetView">
+        <option value="0.45,0.3">3/4</option>
+        <option value="0.08,0.12">side</option>
+        <option value="0.6,0.75">from below</option>
+      </select>
+    </label>
+    <button id="download">Download frames (.txt)</button>
+  </div>
+  <div class="row" data-for="preview" id="actions"></div>
+  <div data-for="preview"><label>Size <input id="pvSize" type="range" min="0.15" max="0.8" step="0.01" value="0.45" /></label></div>
+  <div class="row" data-for="flight">
+    <button id="spawn">Spawn gull</button>
+    <span class="hint">same engine, size and colour as the server screen; auto-spawn every few seconds</span>
+  </div>
+  <div class="hint">data: src/seagull/shape.ts · sheets.ts · settings.ts (edit + save = this page updates)</div>
+</div>
+<div id="sheet"></div>
+<script type="module" src="/src/seagull/lab.ts"></script>
+</body>
+</html>
