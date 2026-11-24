@@ -104,12 +104,12 @@ Discord/
   list. Unread badges count messages newer than login / last view.
   Volume = popup under the name in the voice bar. Same-PC two-tab warning
   (BroadcastChannel) to explain feedback ringing.
-- Screen sharing written (not yet tested/pushed): 🖥️ button in a voice
+- Screen sharing live but not yet tested with friends: 🖥️ button in a voice
   room, getDisplayMedia (tab audio yes, system audio excluded to avoid
   echo). Opt-in watching: viewer sends `screen-watch` {uid, watch} in the
   voice room; sharer addStream(screen, {target, metadata:{uid, kind:'screen'}})
   only to watchers. Presence field `sharing`. Phones can watch, not share.
-- Servers (written + tested by Claude on localhost, not pushed, 2026-11-24):
+- Servers LIVE (2026-11-24, tested by Claude on localhost):
   login = "Sunucuya katıl" / "Sunucu kur" with server name + password.
   No fixed rooms any more; new server = 1 voice room + 1 text channel.
   Creator = admin: ECDSA private key in their localStorage; channel list
