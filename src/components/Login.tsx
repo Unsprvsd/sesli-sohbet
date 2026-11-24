@@ -96,7 +96,7 @@ export default function Login({ onLogin }: Props) {
           />
         </label>
         <label>
-          {mode === 'create' ? 'Sunucu şifresi (arkadaşlarına vereceksin)' : 'Sunucu şifresi'}
+          Sunucu şifresi
           <input
             type="password"
             value={password}
@@ -104,12 +104,6 @@ export default function Login({ onLogin }: Props) {
             required
           />
         </label>
-        {mode === 'create' && (
-          <small className="hint">
-            Sunucuyu kuran yönetici olur ve odaları yönetir. Yöneticilik sadece bu tarayıcıda
-            kalır.
-          </small>
-        )}
         {error && <div className="warning">{error}</div>}
         <button type="submit" disabled={busy}>
           {mode === 'create' ? 'Sunucuyu kur' : 'Giriş yap'}
