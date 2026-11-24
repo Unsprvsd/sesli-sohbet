@@ -1,19 +1,32 @@
 import { useEffect, useRef } from 'react'
 
-// Letters from dark to bright (same as the login background).
-const RAMP = ' .:-=+*#%@'
 const FONT_SIZE = 14
-const LINE_HEIGHT = 16
-const SPEED = 2.2 // cells per second, right to left
-// One colour per row: middle row a bit brighter, outer rows dimmer.
-const ROW_COLORS = ['#141414', '#1e1e1e', '#141414']
+// Head of the beam first, tail last: dense letters fade into dots.
+const BEAM_CHARS = '@%#*+=-:.'
+// Brightness from head to tail (very faint, on black).
+const HEAD = 0x2c
+const TAIL = 0x0c
+// Lanes: height on the screen (0..1). One beam at a time per lane.
+const LANES = [0.17, 0.39, 0.62, 0.84]
+
+type Beam = {
+  y: number // px
+  x: number // px, position of the head
+  speed: number // px per second
+  len: number // letters
+  chars: string
+  wait: number // seconds until it starts (when not running)
+  running: boolean
+}
+
+function rand(a: number, b: number) {
+  return a + Math.random() * (b - a)
+}
 
 /**
- * Very faint band of 3 ASCII rows across the middle of the screen,
- * flowing slowly from right to left (background of the server screen).
- * The pattern is a few sine waves sampled at (x + time * SPEED); the
- * fractional part of the offset moves the text by sub-cell pixels,
- * so the flow is smooth instead of jumping one letter at a time.
+ * Faint ASCII "beams" behind the server screen: in a few lanes a short
+ * streak of letters appears at the right edge, runs to the left and leaves;
+ * then, after a random pause, the next one starts.
  */
 export default function AsciiStream() {
   const ref = useRef<HTMLCanvasElement>(null)
@@ -22,63 +35,80 @@ export default function AsciiStream() {
     const canvas = ref.current
     const ctx = canvas?.getContext('2d')
     if (!canvas || !ctx) return
+    // Reduced motion: no beams at all (a frozen beam looks like a glitch).
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
 
-    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
     const font = getComputedStyle(document.body).fontFamily || 'monospace'
-    const rows = ROW_COLORS.length
-    let cols = 0
     let cellW = 8
 
     const resize = () => {
       const dpr = window.devicePixelRatio || 1
       canvas.width = window.innerWidth * dpr
-      canvas.height = rows * LINE_HEIGHT * dpr
+      canvas.height = window.innerHeight * dpr
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
       ctx.font = `${FONT_SIZE}px ${font}`
-      ctx.textBaseline = 'top'
+      ctx.textBaseline = 'middle'
       cellW = ctx.measureText('M').width || 8
-      cols = Math.ceil(window.innerWidth / cellW) + 2
     }
 
-    const draw = (t: number) => {
-      const offset = t * SPEED
-      const shift = Math.floor(offset)
-      const frac = offset - shift
-      ctx.clearRect(0, 0, window.innerWidth, rows * LINE_HEIGHT)
-      for (let y = 0; y < rows; y++) {
-        let line = ''
-        for (let x = 0; x < cols; x++) {
-          const sx = x + shift
-          let v =
-            Math.sin(sx * 0.07 + y * 0.6) +
-            Math.sin(sx * 0.023 - y * 0.4 + t * 0.15) +
-            Math.sin(sx * 0.15 + t * 0.3)
-          v = (v + 3) / 6
-          const i = Math.max(0, Math.min(RAMP.length - 1, Math.floor(v * RAMP.length)))
-          line += RAMP[i]
-        }
-        ctx.fillStyle = ROW_COLORS[y]
-        ctx.fillText(line, -frac * cellW, y * LINE_HEIGHT)
+    const reset = (b: Beam, lane: number, first: boolean) => {
+      b.running = false
+      b.wait = first ? rand(0.3, 5) : rand(1.5, 7)
+      b.y = Math.round((LANES[lane] + rand(-0.04, 0.04)) * window.innerHeight)
+      b.speed = rand(260, 520)
+      b.len = Math.round(rand(18, 40))
+      // letters along the beam: denser at the head, dots at the tail
+      let s = ''
+      for (let i = 0; i < b.len; i++) {
+        const k = (i / b.len) * (BEAM_CHARS.length - 1) + rand(-0.8, 0.8)
+        s += BEAM_CHARS[Math.max(0, Math.min(BEAM_CHARS.length - 1, Math.round(k)))]
       }
+      b.chars = s
     }
+
+    const beams: Beam[] = LANES.map((_, i) => {
+      const b = { y: 0, x: 0, speed: 0, len: 0, chars: '', wait: 0, running: false }
+      reset(b, i, true)
+      return b
+    })
 
     let raf = 0
+    let last = performance.now()
     const loop = (now: number) => {
       raf = requestAnimationFrame(loop)
-      draw(now / 1000)
-    }
-    const onResize = () => {
-      resize()
-      if (reduceMotion) draw(0)
+      const dt = Math.min(0.1, (now - last) / 1000) // cap after a hidden tab
+      last = now
+      const w = window.innerWidth
+      ctx.clearRect(0, 0, w, window.innerHeight)
+      beams.forEach((b, lane) => {
+        if (!b.running) {
+          b.wait -= dt
+          if (b.wait > 0) return
+          b.running = true
+          b.x = w + cellW
+        }
+        b.x -= b.speed * dt
+        if (b.x + b.len * cellW < 0) {
+          reset(b, lane, false)
+          return
+        }
+        for (let i = 0; i < b.len; i++) {
+          const cx = b.x + i * cellW
+          if (cx < -cellW || cx > w) continue
+          const f = 1 - i / b.len
+          const c = Math.round(TAIL + (HEAD - TAIL) * f * f)
+          ctx.fillStyle = `rgb(${c},${c},${c})`
+          ctx.fillText(b.chars[i], cx, b.y)
+        }
+      })
     }
 
     resize()
-    window.addEventListener('resize', onResize)
-    if (reduceMotion) draw(0)
-    else raf = requestAnimationFrame(loop)
+    window.addEventListener('resize', resize)
+    raf = requestAnimationFrame(loop)
     return () => {
       cancelAnimationFrame(raf)
-      window.removeEventListener('resize', onResize)
+      window.removeEventListener('resize', resize)
     }
   }, [])
 
