@@ -134,7 +134,9 @@ export type Gull = {
   action: ActionKey; prev: ActionKey; blend: number
   t: number; actT: number
   flapsLeft: number; glideLeft: number
-  climbTo: number
+  climbTo: number; climbRate: number
+  route: P2[] // waypoints from entry to exit (the last one is outside the screen)
+  wp: number // index of the next waypoint
   path: Path | null
   pose: Pose
 }
@@ -189,10 +191,28 @@ export class SeagullFlock {
     const heading = rnd() < 0.5 ? 1 : -1
     const m = this.margin()
     const v = r(R.viewYaw[0], R.viewYaw[1])
+
+    // route: entry -> 2..4 waypoints (alternating up / down) -> exit
+    const RT = F.route
+    const entryY = r(RT.entryY[0], RT.entryY[1])
+    const n = Math.floor(r(RT.waypoints[0], RT.waypoints[1] + 1))
+    const route: P2[] = []
+    let y = entryY
+    let dir = rnd() < 0.5 ? 1 : -1 // first change: down (+1) or up (-1)
+    for (let i = 1; i <= n; i++) {
+      const fx = i / (n + 1) + r(-RT.jitterX, RT.jitterX)
+      let ny = y + dir * r(RT.step[0], RT.step[1])
+      if (ny < RT.yRange[0] || ny > RT.yRange[1]) ny = y - dir * r(RT.step[0], RT.step[1]) // bounce back
+      y = clamp(ny, RT.yRange[0], RT.yRange[1])
+      route.push([heading > 0 ? fx : 1 - fx, y])
+      dir = -dir
+    }
+    route.push([heading > 0 ? 1 + m + 0.1 : -m - 0.1, r(RT.exitY[0], RT.exitY[1])])
+
     this.gulls.push({
       id, rnd,
       x: heading > 0 ? -m : 1 + m,
-      y: r(F.startY[0], F.startY[1]),
+      y: entryY,
       vx: heading * F.move.level[0], vy: 0,
       heading,
       yaw: heading > 0 ? v : Math.PI - v, // facing right / left
@@ -200,7 +220,8 @@ export class SeagullFlock {
       action: 'level', prev: 'level', blend: 1,
       t: rnd(), actT: 0,
       flapsLeft: Math.round(r(F.flaps[0], F.flaps[1])), glideLeft: 0,
-      climbTo: 0,
+      climbTo: 0, climbRate: F.move.climb[1],
+      route, wp: 0,
       path: null,
       pose: SHEETS.level.pose(0),
     })
@@ -246,26 +267,32 @@ export class SeagullFlock {
     this.setAction(g, kind)
   }
 
-  // decide what to do: keep the height between `high` and `low`
+  // decide what to do: fly the route, waypoint by waypoint
   private think(g: Gull, dt: number) {
-    const F = SETTINGS.flight
+    const F = SETTINGS.flight, RT = F.route, S = F.virtualScreen
     const r = (a: number, b: number) => a + g.rnd() * (b - a)
-    if (g.path) return
+    if (g.path) return // finish the swoop first
+
+    // passed the next waypoint (in flight direction)? -> aim at the one after it
+    while (g.wp < g.route.length - 1 && (g.route[g.wp][0] - g.x) * g.heading < 0.02) g.wp++
+    const [wx, wy] = g.route[g.wp]
+    const dx = Math.max(0.05, Math.abs(wx - g.x))
+    const dy = wy - g.y // + = waypoint is lower
+
     if (g.action === 'climb') {
-      if (g.y > g.climbTo) return // keep climbing
+      if (g.y > g.climbTo + 0.01) return // keep climbing
       this.setAction(g, 'level')
       g.flapsLeft = Math.round(r(F.flaps[0], F.flaps[1]))
     }
-    if (g.y < F.high) {
-      this.startSwoop(g, r(0.25, 0.45), r(0.35, 0.6), 'down')
-    } else if (g.y > F.low) {
-      g.climbTo = r(0.4, 0.6)
-      this.setAction(g, 'climb')
-    } else if (g.y < 0.55 && g.rnd() < F.randomSwoop * dt) {
-      const drop = r(0.15, 0.3)
-      this.startSwoop(g, r(0.2, 0.4), g.y + drop, g.rnd() < 0.3 ? 'dive' : 'down')
-    } else if (g.y > 0.4 && g.rnd() < F.randomClimb * dt) {
-      g.climbTo = g.y - r(0.12, 0.22)
+
+    if (dy > RT.flatTolerance) {
+      // lower -> swoop down to it (dive when steep)
+      const slope = (dy * S.h) / (dx * S.w)
+      this.startSwoop(g, Math.max(0.12, dx), wy, slope > RT.diveSlope ? 'dive' : 'down')
+    } else if (dy < -RT.flatTolerance) {
+      // higher -> climb, steep enough to get there around the waypoint
+      g.climbTo = wy
+      g.climbRate = -clamp((-dy / dx) * F.move.climb[0], RT.climbRate[0], RT.climbRate[1])
       this.setAction(g, 'climb')
     } else if (g.action === 'glide') {
       g.glideLeft -= dt
@@ -328,7 +355,8 @@ export class SeagullFlock {
       }
     } else {
       // speed eases towards the target speed -> curved changes of direction
-      const [fw, dn] = F.move[g.action as 'level' | 'climb' | 'glide'] ?? F.move.level
+      const [fw, dnBase] = F.move[g.action as 'level' | 'climb' | 'glide'] ?? F.move.level
+      const dn = g.action === 'climb' ? g.climbRate : dnBase // climb angle fits the waypoint
       const k = Math.min(1, dt * F.steer)
       g.vx += (g.heading * fw - g.vx) * k
       g.vy += (dn - g.vy) * k

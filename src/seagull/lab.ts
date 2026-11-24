@@ -175,7 +175,22 @@ function frame(now: number) {
   toAscii(octx, 0, 0, cols, rows).forEach((l, y) => {
     if (l.trim()) vctx.fillText(l, 0, y * lineH)
   })
+
+  // flight: show each gull's planned route (+) and its trail (.)
+  if (tab === 'flight') {
+    for (const g of flock.gulls) {
+      const tr = (trails[g.id] ??= [])
+      tr.push([g.x, g.y])
+      if (tr.length > 2000) tr.shift()
+      vctx.fillStyle = '#3a3a3a'
+      for (let i = 0; i < tr.length; i += 6) vctx.fillText('.', tr[i][0] * innerWidth, tr[i][1] * innerHeight)
+      vctx.fillStyle = '#9a9a9a'
+      g.route.forEach(([x, y], i) => vctx.fillText(i < g.wp ? '+' : `+${i + 1}`, x * innerWidth, y * innerHeight))
+    }
+    for (const id of Object.keys(trails)) if (!flock.has(id)) delete trails[id]
+  }
 }
+const trails: Record<string, [number, number][]> = {}
 
 resize()
 setTab('sheets')

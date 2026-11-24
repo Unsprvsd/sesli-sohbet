@@ -17,13 +17,22 @@ export const SETTINGS = {
     steer: 1.6, // how fast the speed follows the target (higher = sharper curves)
     swoopDown: 0.26, // top speed along a glide-down curve (screen widths / s)
     swoopDive: 0.36, // top speed along a dive curve
-    high: 0.15, // above this (closer to the top) -> glide down
-    low: 0.8, // below this -> climb
-    startY: [0.2, 0.7] as P2, // height where a gull enters
+    // ROUTE: when a gull appears, its entry point, waypoints and exit point are
+    // fixed (from its seed, so everyone gets the same route). It dives / climbs
+    // from waypoint to waypoint.
+    route: {
+      entryY: [0.1, 0.85] as P2, // height where the gull enters
+      exitY: [0.1, 0.85] as P2, // height where it leaves on the other side
+      waypoints: [2, 4] as P2, // how many points in between
+      yRange: [0.12, 0.85] as P2, // waypoints stay in this height band
+      step: [0.18, 0.45] as P2, // height change between waypoints (up and down alternate)
+      jitterX: 0.05, // waypoints are not exactly evenly spaced
+      flatTolerance: 0.06, // height difference that still counts as "level"
+      climbRate: [0.03, 0.09] as P2, // climb speed limits (screen heights / s)
+      diveSlope: 0.9, // steeper than this (down / forward) -> dive instead of glide down
+    },
     flaps: [2, 5] as P2, // wing beats before a glide
     glide: [0.8, 2] as P2, // seconds of gliding
-    randomSwoop: 0.06, // chance per second of a swoop down (when not too low)
-    randomClimb: 0.05, // chance per second of a short climb (when not too high)
     // Spawning is done by ONE user (the "leader") and sent to everyone,
     // so all users see the same gull at the same time.
     firstSpawn: [10, 10] as P2, // seconds until the first gull (after becoming leader) — TEST value, normal: [60, 180]
@@ -50,7 +59,7 @@ export const SETTINGS = {
     fontSize: 7,
     lineHeight: 1.15,
     color: '#5c5c5c', // faint, like the other background effects
-    size: 0.105, // gull width as part of the screen width (was 0.14, -25%)
+    size: 0.079, // gull width as part of the screen width (0.14 -> 0.105 -> 0.079, -25% twice)
     viewYaw: [0.2, 0.6] as P2, // seen from the side .. three-quarter
     tilt: [0.15, 0.45] as P2, // camera a bit below
   },
