@@ -123,7 +123,9 @@ Discord/
 - Design "Clean lines" (2026-11-24, see vault/Design.md): white on black, JetBrains
   Mono, no emoji, `<name>` bold in chat, `$`/`#` (admin) prompt, crown, volume bars.
   Text chat = drawer at the bottom of the middle column (25vh), opened by clicking a
-  text channel, ▲/▼ toggles it.
+  text channel, ▲/▼ toggles it. LIVE.
+- Screen share quality presets (480p30 / 720p30 default / 1080p15 / 1080p30 / 1080p60),
+  changeable while sharing via applyConstraints. LIVE (2026-11-24).
 - Rule: test big changes on localhost BEFORE pushing — friends use the live site.
 - Speaking state is self-reported through lobby presence (no peer-id mapping
   between lobby and voice rooms needed).
