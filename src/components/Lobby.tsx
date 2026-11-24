@@ -40,6 +40,13 @@ const FIND_TIMEOUT_MS = 45_000
 // How long the join log stays visible after the server is found.
 const ENTER_DELAY_MS = 900
 
+// Shown in the middle when I'm not in a voice room.
+const IDLE_ART = String.raw`  ___________
+ |  _______  |
+ | |       | |
+ | |_______| |
+ |___________|`
+
 export default function Lobby({ name, serverName, srv, password, onLogout, onFail }: Props) {
   // --- connection / reconnect -------------------------------------------
   const [online, setOnline] = useState(() => navigator.onLine)
@@ -187,6 +194,8 @@ export default function Lobby({ name, serverName, srv, password, onLogout, onFai
   const [deviceId, setDeviceId] = useSetting('micDeviceId', '')
   const [pttEnabled, setPttEnabled] = useSetting('pttEnabled', false)
   const [pttKey, setPttKey] = useSetting('pttKey', 'KeyV')
+  // Text chat is a drawer at the bottom; open or closed is remembered.
+  const [chatOpen, setChatOpen] = useSetting('chatOpen', false)
   const [volumeByName, setVolumeByName] = useSetting<Record<string, number>>('volumes', {})
 
   // --- push-to-talk -----------------------------------------------------
@@ -362,8 +371,8 @@ export default function Lobby({ name, serverName, srv, password, onLogout, onFai
   const [lastSeen, setLastSeen] = useState<Record<string, number>>({})
   // The channel I'm looking at is always "seen".
   useEffect(() => {
-    if (channelId) setLastSeen((prev) => ({ ...prev, [channelId]: Date.now() }))
-  }, [channelId, channelMessages.length])
+    if (channelId && chatOpen) setLastSeen((prev) => ({ ...prev, [channelId]: Date.now() }))
+  }, [channelId, chatOpen, channelMessages.length])
   const unread = useMemo(() => {
     const out: Record<string, number> = {}
     for (const m of messages) {
@@ -516,12 +525,15 @@ export default function Lobby({ name, serverName, srv, password, onLogout, onFai
         </h2>
         {textChannels.map((c) => {
           const active = c.id === channelId
-          const count = active ? 0 : (unread[c.id] ?? 0)
+          const count = active && chatOpen ? 0 : (unread[c.id] ?? 0)
           return (
             <div key={c.id} className="row">
               <button
                 className={`channel ${active ? 'active' : ''} ${count ? 'unread' : ''}`}
-                onClick={() => setChannel(c.id)}
+                onClick={() => {
+                  setChannel(c.id)
+                  setChatOpen(true)
+                }}
               >
                 <span># {c.name}</span>
                 {count > 0 && <span className="badge">{count > 99 ? '99+' : count}</span>}
@@ -593,69 +605,104 @@ export default function Lobby({ name, serverName, srv, password, onLogout, onFai
       </aside>
 
       <main className="content">
-        {!online && (
-          <div className="warning">
-            Internet connection lost. It will reconnect automatically when it is back.
-          </div>
-        )}
-        {warning && <div className="warning">{warning}</div>}
-        {voice.error && <div className="warning">{voice.error}</div>}
-        {sameDeviceTab && !deafened && (
-          <div className="warning">
-            Another tab on this PC is in the same room. With speakers this causes ringing
-            (feedback): use headphones, or press Sound in one tab to turn its sound off.
-          </div>
-        )}
-        {someoneMissing && (
-          <div className="warning">
-            Could not connect voice to everyone in the room. Retrying automatically…
-          </div>
-        )}
+        <div className="stage">
+          {!online && (
+            <div className="warning">
+              Internet connection lost. It will reconnect automatically when it is back.
+            </div>
+          )}
+          {warning && <div className="warning">{warning}</div>}
+          {voice.error && <div className="warning">{voice.error}</div>}
+          {sameDeviceTab && !deafened && (
+            <div className="warning">
+              Another tab on this PC is in the same room. With speakers this causes ringing
+              (feedback): use headphones, or press Sound in one tab to turn its sound off.
+            </div>
+          )}
+          {someoneMissing && (
+            <div className="warning">
+              Could not connect voice to everyone in the room. Retrying automatically…
+            </div>
+          )}
 
-        {myRoom && (
-          <VoicePanel
-            roomName={roomName}
-            members={roomMembers}
-            volumes={volumeByName}
-            onVolume={(n, v) => setVolumeByName((prev) => ({ ...prev, [n]: v }))}
-            pttEnabled={pttEnabled}
-            onPttHold={setPttDown}
-            watchUid={watchUid}
-            onWatch={setWatchUid}
-          />
-        )}
+          {myRoom && (
+            <VoicePanel
+              roomName={roomName}
+              members={roomMembers}
+              volumes={volumeByName}
+              onVolume={(n, v) => setVolumeByName((prev) => ({ ...prev, [n]: v }))}
+              pttEnabled={pttEnabled}
+              onPttHold={setPttDown}
+              watchUid={watchUid}
+              onWatch={setWatchUid}
+            />
+          )}
 
-        {shareError && <div className="warning">{shareError}</div>}
+          {shareError && <div className="warning">{shareError}</div>}
 
-        {screen && (
-          <div className="sharing-bar">
-            <span>
-              <span className="tag live">LIVE</span> You are sharing your screen
-            </span>
-            <button className="btn ghost" onClick={stopShare}>
-              Stop
-            </button>
-          </div>
-        )}
+          {screen && (
+            <div className="sharing-bar">
+              <span>
+                <span className="tag live">LIVE</span> You are sharing your screen
+              </span>
+              <button className="btn ghost" onClick={stopShare}>
+                Stop
+              </button>
+            </div>
+          )}
 
-        {watchUid && watched && (
-          <ScreenView
-            name={watched.name}
-            stream={voice.screens[watchUid] ?? null}
-            muted={deafened}
-            volume={volumesById[watchUid] ?? 1}
-            onClose={() => setWatchUid(null)}
-          />
-        )}
+          {watchUid && watched && (
+            <ScreenView
+              name={watched.name}
+              stream={voice.screens[watchUid] ?? null}
+              muted={deafened}
+              volume={volumesById[watchUid] ?? 1}
+              onClose={() => setWatchUid(null)}
+            />
+          )}
+
+          {!myRoom && !watchUid && (
+            <div className="idle">
+              <pre>{IDLE_ART}</pre>
+              <p>Join a voice room on the left, or open a text channel.</p>
+            </div>
+          )}
+        </div>
 
         {channel && (
-          <Chat
-            roomName={channel.name}
-            messages={channelMessages}
-            myName={name}
-            prompt={isAdmin ? '#' : '$'}
-            onSend={(text) => sendChat(channel.id, text)}
-          />
+          <section className={`drawer ${chatOpen ? 'open' : ''}`}>
+            <button
+              className="drawer-bar"
+              onClick={() => setChatOpen((o) => !o)}
+              aria-expanded={chatOpen}
+              title={chatOpen ? 'Close chat' : 'Open chat'}
+            >
+              <span className="drawer-title">
+                # {channel.name}
+                {chatOpen && channelMessages.length > 0 && (
+                  <small>
+                    {channelMessages.length}{' '}
+                    {channelMessages.length === 1 ? 'message' : 'messages'}
+                  </small>
+                )}
+                {!chatOpen && (unread[channel.id] ?? 0) > 0 && (
+                  <span className="badge">{unread[channel.id]}</span>
+                )}
+              </span>
+              <span className="arrow" aria-hidden="true">
+                {chatOpen ? '▼' : '▲'}
+              </span>
+            </button>
+            {chatOpen && (
+              <Chat
+                roomName={channel.name}
+                messages={channelMessages}
+                myName={name}
+                prompt={isAdmin ? '#' : '$'}
+                onSend={(text) => sendChat(channel.id, text)}
+              />
+            )}
+          </section>
         )}
       </main>
 

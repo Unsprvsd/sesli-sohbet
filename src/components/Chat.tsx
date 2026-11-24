@@ -49,14 +49,6 @@ export default function Chat({ roomName, messages, myName, prompt, onSend }: Pro
 
   return (
     <section className="chat">
-      <header className="chat-head">
-        # {roomName}
-        {messages.length > 0 && (
-          <small>
-            {messages.length} {messages.length === 1 ? 'message' : 'messages'}
-          </small>
-        )}
-      </header>
       <div className="chat-list" ref={listRef}>
         {messages.length === 0 && (
           <p className="hint">No messages yet. Be the first to write!</p>
@@ -80,6 +72,7 @@ export default function Chat({ roomName, messages, myName, prompt, onSend }: Pro
             value={text}
             onChange={(e) => setText(e.target.value)}
             placeholder={`Message #${roomName}`}
+            autoFocus
             maxLength={MAX_MESSAGE_LENGTH}
           />
         </label>

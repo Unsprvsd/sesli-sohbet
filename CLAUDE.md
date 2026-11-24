@@ -120,6 +120,8 @@ Discord/
 - UI language is English (2026-11-24); default rooms "General" / "#general".
 - Design "Clean lines" (2026-11-24, see vault/Design.md): white on black, JetBrains
   Mono, no emoji, `<name>` bold in chat, `$`/`#` (admin) prompt, crown, volume bars.
+  Text chat = drawer at the bottom of the middle column (25vh), opened by clicking a
+  text channel, ▲/▼ toggles it.
 - Rule: test big changes on localhost BEFORE pushing — friends use the live site.
 - Speaking state is self-reported through lobby presence (no peer-id mapping
   between lobby and voice rooms needed).
