@@ -1,15 +1,20 @@
 import { useEffect, useRef } from 'react'
 
 type Props = {
-  name: string
+  /** Text in the head, e.g. "Ali is sharing their screen". */
+  title: string
   stream: MediaStream | null // null = still connecting
   muted: boolean
   volume: number // 0..1
-  onClose: () => void
+  /** Small window docked bottom-right (true) or big in the middle (false). */
+  mini: boolean
+  onToggleMini: () => void
+  /** Stop watching. Not given for my own preview (stop sharing is in the sharing bar). */
+  onClose?: () => void
 }
 
-/** Big view of someone's shared screen. */
-export default function ScreenView({ name, stream, muted, volume, onClose }: Props) {
+/** A shared screen: big in the middle, or as a small window bottom-right. */
+export default function ScreenView({ title, stream, muted, volume, mini, onToggleMini, onClose }: Props) {
   const boxRef = useRef<HTMLDivElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
 
@@ -35,22 +40,29 @@ export default function ScreenView({ name, stream, muted, volume, onClose }: Pro
   }
 
   return (
-    <section className="screen-view" ref={boxRef}>
+    <section className={`screen-view ${mini ? 'mini' : ''}`} ref={boxRef}>
       <div className="screen-head">
-        <span>
-          <span className="tag live">LIVE</span> {name} is sharing their screen
+        <span className="screen-title">
+          <span className="tag live">LIVE</span> {title}
         </span>
         <div className="screen-actions">
-          <button onClick={fullscreen} title="Full screen">
-            Full screen
+          <button onClick={onToggleMini} title={mini ? 'Make it big' : 'Small window bottom-right'}>
+            {mini ? 'Expand' : 'Minimize'}
           </button>
-          <button onClick={onClose} title="Stop watching">
-            Close
-          </button>
+          {!mini && (
+            <button onClick={fullscreen} title="Full screen">
+              Full screen
+            </button>
+          )}
+          {onClose && (
+            <button onClick={onClose} title="Stop watching">
+              Close
+            </button>
+          )}
         </div>
       </div>
       <div className="screen-body">
-        <video ref={videoRef} autoPlay playsInline onDoubleClick={fullscreen} />
+        <video ref={videoRef} autoPlay playsInline muted={muted} onDoubleClick={mini ? onToggleMini : fullscreen} />
         {!stream && <div className="screen-wait">Connecting…</div>}
       </div>
     </section>

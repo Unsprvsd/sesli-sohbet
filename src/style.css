@@ -1051,6 +1051,39 @@ pre.logo {
   color: var(--muted);
 }
 
+.screen-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* small screen windows, docked bottom-right */
+.mini-dock {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 30;
+  width: min(360px, calc(100vw - 32px));
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.screen-view.mini {
+  border-color: var(--line-2);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.7);
+}
+
+.screen-view.mini .screen-head {
+  padding: 4px 8px;
+  font-size: 12px;
+}
+
+.screen-view.mini .screen-body video {
+  max-height: 30vh;
+}
+
 /* --- chat ---------------------------------------------------------------- */
 
 .chat {

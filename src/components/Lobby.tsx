@@ -292,6 +292,9 @@ export default function Lobby({ name, serverName, srv, password, onLogout, onFai
 
   // --- screen sharing ---------------------------------------------------
   const [screen, setScreen] = useState<MediaStream | null>(null)
+  // Shared screens: small window bottom-right (true) or big in the middle.
+  const [previewMini, setPreviewMini] = useState(true) // my own screen, while I share
+  const [watchMini, setWatchMini] = useState(false) // a screen I watch
   const [qualityId, setQualityId] = useSetting('screenQuality', DEFAULT_SCREEN_QUALITY)
   const quality = findScreenQuality(qualityId)
   /** What the browser really sends, e.g. "1280×720 · 30 fps". */
@@ -526,6 +529,32 @@ export default function Lobby({ name, serverName, srv, password, onLogout, onFai
 
   const roomOf = (id: string | null) => voiceRooms.find((r) => r.id === id)?.name
 
+  // My own screen while I share (always muted: no echo). Starts as a small window.
+  const previewView = screen && (
+    <ScreenView
+      key="preview"
+      title="Your screen"
+      stream={screen}
+      muted
+      volume={0}
+      mini={previewMini}
+      onToggleMini={() => setPreviewMini((m) => !m)}
+    />
+  )
+  // Someone else's screen that I watch. Starts big; can be made small.
+  const watchView = watchUid && watched && (
+    <ScreenView
+      key="watch"
+      title={`${watched.name} is sharing their screen`}
+      stream={voice.screens[watchUid] ?? null}
+      muted={deafened}
+      volume={volumesById[watchUid] ?? 1}
+      mini={watchMini}
+      onToggleMini={() => setWatchMini((m) => !m)}
+      onClose={() => setWatchUid(null)}
+    />
+  )
+
   return (
     <div className="layout">
       <AsciiStream />
@@ -733,15 +762,9 @@ export default function Lobby({ name, serverName, srv, password, onLogout, onFai
             </div>
           )}
 
-          {watchUid && watched && (
-            <ScreenView
-              name={watched.name}
-              stream={voice.screens[watchUid] ?? null}
-              muted={deafened}
-              volume={volumesById[watchUid] ?? 1}
-              onClose={() => setWatchUid(null)}
-            />
-          )}
+          {/* big screen views (the small ones are in .mini-dock below) */}
+          {previewView && !previewMini && previewView}
+          {watchView && !watchMini && watchView}
 
           {!myRoom && !watchUid && (
             <div className="idle">
@@ -804,6 +827,14 @@ export default function Lobby({ name, serverName, srv, password, onLogout, onFai
           ))}
         </ul>
       </aside>
+
+      {/* small screen windows, docked bottom-right (stacked when there are two) */}
+      {((previewView && previewMini) || (watchView && watchMini)) && (
+        <div className="mini-dock">
+          {watchView && watchMini && watchView}
+          {previewView && previewMini && previewView}
+        </div>
+      )}
 
       {showSettings && (
         <Settings
