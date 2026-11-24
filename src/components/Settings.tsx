@@ -90,7 +90,7 @@ export default function Settings(p: Props) {
           </div>
         )}
 
-        <button className="primary" onClick={p.onClose}>
+        <button className="btn" onClick={p.onClose}>
           Close
         </button>
       </div>

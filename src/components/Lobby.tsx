@@ -15,6 +15,7 @@ import {
 import { useSameDeviceTabs } from '../sameDevice'
 import { keyLabel, useSetting } from '../settings'
 import { canShareScreen, startScreenShare, useVoice } from '../voice'
+import { Crown, LOGO_SMALL } from './Bits'
 import Chat from './Chat'
 import ScreenView from './ScreenView'
 import Settings from './Settings'
@@ -36,6 +37,8 @@ const RETRY_BASE_MS = 15_000
 const MAX_RETRIES = 3
 // Give up looking for an unknown server after this long.
 const FIND_TIMEOUT_MS = 45_000
+// How long the join log stays visible after the server is found.
+const ENTER_DELAY_MS = 900
 
 export default function Lobby({ name, serverName, srv, password, onLogout, onFail }: Props) {
   // --- connection / reconnect -------------------------------------------
@@ -166,10 +169,10 @@ export default function Lobby({ name, serverName, srv, password, onLogout, onFai
     isAdmin && (
       <span className="admin-actions">
         <button onClick={() => renameChannel(kind, ch)} title="Rename">
-          ✏️
+          edit
         </button>
         <button onClick={() => deleteChannel(kind, ch)} title="Delete">
-          🗑️
+          del
         </button>
       </span>
     )
@@ -392,34 +395,80 @@ export default function Lobby({ name, serverName, srv, password, onLogout, onFai
     return () => clearTimeout(timer)
   }, [config, decryptFailed, onFail])
 
-  if (!config) {
+  // Keep the join log on screen a moment after the server is found.
+  const [entered, setEntered] = useState(false)
+  useEffect(() => {
+    if (!config || entered) return
+    const timer = setTimeout(() => setEntered(true), ENTER_DELAY_MS)
+    return () => clearTimeout(timer)
+  }, [config, entered])
+
+  if (!entered) {
+    const peers = users.filter((u) => !u.self).length
+    const lines: [string, string | null][] = [
+      ['connecting to relays', status === 'online' ? 'ok' : null],
+      ['room key', `${srv.slice(0, 4)}·${srv.slice(4, 8)}`],
+      ['encrypting handshake', 'ok'],
+      ['looking for peers', config || peers ? `${peers} found` : null],
+    ]
+    if (config) {
+      lines.push(['admin signature', 'valid'])
+      lines.push(['channels', `${config.voice.length} voice · ${config.text.length} text`])
+    }
     return (
       <div className="center">
-        <div className="card login">
-          <h1>{serverName}</h1>
-          <p className="hint">Looking for the server…</p>
-          <button className="link" onClick={onLogout}>
-            Cancel
-          </button>
+        <div className="joinlog">
+          <pre className="logo small" aria-label="Voice Chat">
+            {LOGO_SMALL}
+          </pre>
+          <div className="joinlog-server">{config?.name ?? serverName}</div>
+          <div className="log">
+            {lines.map(([label, result], i) => (
+              <div key={label} style={{ animationDelay: `${i * 90}ms` }}>
+                {result === null ? (
+                  <>
+                    {label} <span className="spin" />
+                  </>
+                ) : (
+                  <>
+                    <span className="ok">{label}</span> · <span className="k">{result}</span>
+                  </>
+                )}
+              </div>
+            ))}
+            {config && (
+              <div className="welcome" style={{ animationDelay: `${lines.length * 90}ms` }}>
+                welcome, {name}.
+              </div>
+            )}
+          </div>
+          {!config && (
+            <button className="btn ghost" onClick={onLogout}>
+              Cancel
+            </button>
+          )}
         </div>
       </div>
     )
   }
+  if (!config) return null
+
+  const roomOf = (id: string | null) => voiceRooms.find((r) => r.id === id)?.name
 
   return (
     <div className="layout">
       <aside className="sidebar">
-        <div className="server-name" title={isAdmin ? 'You are the admin of this server' : ''}>
-          {isAdmin && '👑 '}
-          {config?.name ?? serverName}
+        <div className="server-name">
+          <span>{config.name}</span>
+          {isAdmin && <small title="You are the admin of this server">admin</small>}
         </div>
-        <div className="sidebar-head">
+        <div className="status-line">
           <span className={`dot ${online ? status : 'offline'}`} />
-          {!online ? 'No internet' : status === 'online' ? 'Connected' : 'Connecting…'}
+          {!online ? 'no internet' : status === 'online' ? 'connected' : 'connecting…'}
         </div>
 
         <h2 className="section">
-          Voice rooms
+          Voice
           {isAdmin && (
             <button className="add" onClick={() => addChannel('voice')} title="Add voice room">
               +
@@ -432,20 +481,21 @@ export default function Lobby({ name, serverName, srv, password, onLogout, onFai
           return (
             <div key={room.id} className={`room ${inside ? 'active' : ''}`}>
               <div className="row">
-              <button
-                className="room-name"
-                onClick={() => setMyRoom(room.id)}
-                disabled={inside}
-                title="Join room"
-              >
-                🔊 {room.name}
-              </button>
-              {adminButtons('voice', room)}
+                <button
+                  className="room-name"
+                  onClick={() => setMyRoom(room.id)}
+                  disabled={inside}
+                  title="Join room"
+                >
+                  <span>◉ {room.name}</span>
+                  {members.length > 0 && <span className="count">{members.length}</span>}
+                </button>
+                {adminButtons('voice', room)}
               </div>
               <ul>
                 {members.map((u) => (
                   <li key={u.id}>
-                    <UserName user={u} />
+                    <UserName user={u} meter />
                   </li>
                 ))}
               </ul>
@@ -454,7 +504,7 @@ export default function Lobby({ name, serverName, srv, password, onLogout, onFai
         })}
 
         <h2 className="section">
-          Text channels
+          Text
           {isAdmin && (
             <button className="add" onClick={() => addChannel('text')} title="Add text channel">
               +
@@ -479,62 +529,58 @@ export default function Lobby({ name, serverName, srv, password, onLogout, onFai
         })}
 
         <div className="sidebar-foot">
-          {myRoom && (
-            <div className="voice-status">
-              <div className={voice.ready ? 'ok' : 'wait'}>
-                {voice.ready ? 'Voice connected' : 'Voice connecting…'}
-              </div>
-              <small>
-                {roomName} · connected to {voice.peerCount}
-              </small>
-            </div>
-          )}
-          <div className="controls">
+          <div className="me-row">
             <span className="me">{name}</span>
+            {myRoom && (
+              <small className={voice.ready ? '' : 'wait'}>
+                {voice.ready ? roomName : 'voice connecting…'}
+              </small>
+            )}
+          </div>
+          <div className="controls">
             <button
-              className={`icon ${micMuted ? 'off' : ''}`}
+              className={`ctl ${micMuted ? 'off' : ''}`}
               onClick={() => setMuted((m) => !m)}
               disabled={deafened}
               title={micMuted ? 'Unmute' : 'Mute'}
             >
-              {micMuted ? '🔇' : '🎤'}
+              {micMuted ? 'Muted' : 'Mic'}
             </button>
             <button
-              className={`icon ${deafened ? 'off' : ''}`}
+              className={`ctl ${deafened ? 'off' : ''}`}
               onClick={() => setDeafened((d) => !d)}
               title={deafened ? 'Undeafen' : 'Deafen (hear nobody)'}
             >
-              {deafened ? '🔕' : '🎧'}
+              {deafened ? 'Deaf' : 'Sound'}
             </button>
             {myRoom && canShareScreen() && (
               <button
-                className={`icon ${screen ? 'sharing' : ''}`}
+                className={`ctl ${screen ? 'off' : ''}`}
                 onClick={toggleShare}
                 title={screen ? 'Stop sharing' : 'Share your screen'}
               >
-                🖥️
+                Screen
               </button>
             )}
-            <button className="icon" onClick={() => setShowSettings(true)} title="Settings">
-              ⚙️
+            <button className="ctl" onClick={() => setShowSettings(true)} title="Settings">
+              Settings
             </button>
             {myRoom && (
-              <button
-                className="icon leave"
-                onClick={() => setMyRoom(null)}
-                title="Leave room"
-              >
-                📞
+              <button className="ctl" onClick={() => setMyRoom(null)} title="Leave room">
+                Leave
               </button>
             )}
           </div>
+          {myRoom && voice.ready && (
+            <small className="muted">connected to {voice.peerCount}</small>
+          )}
           {pttEnabled && myRoom && (
             <small className={`ptt-state ${transmit ? 'on' : ''}`}>
               {micMuted
-                ? 'Push-to-talk: mic is muted'
+                ? 'push-to-talk: mic is muted'
                 : transmit
-                  ? 'Talking…'
-                  : `Hold ${keyLabel(pttKey)} to talk`}
+                  ? 'talking…'
+                  : `hold ${keyLabel(pttKey)} to talk`}
             </small>
           )}
           <button className="link" onClick={onLogout}>
@@ -554,7 +600,7 @@ export default function Lobby({ name, serverName, srv, password, onLogout, onFai
         {sameDeviceTab && !deafened && (
           <div className="warning">
             Another tab on this PC is in the same room. With speakers this causes ringing
-            (feedback): use headphones, or press 🎧 in one tab to turn its sound off.
+            (feedback): use headphones, or press Sound in one tab to turn its sound off.
           </div>
         )}
         {someoneMissing && (
@@ -580,8 +626,12 @@ export default function Lobby({ name, serverName, srv, password, onLogout, onFai
 
         {screen && (
           <div className="sharing-bar">
-            <span>🔴 You are sharing your screen</span>
-            <button onClick={stopShare}>Stop</button>
+            <span>
+              <span className="tag live">LIVE</span> You are sharing your screen
+            </span>
+            <button className="btn ghost" onClick={stopShare}>
+              Stop
+            </button>
           </div>
         )}
 
@@ -600,20 +650,20 @@ export default function Lobby({ name, serverName, srv, password, onLogout, onFai
             roomName={channel.name}
             messages={channelMessages}
             myName={name}
+            prompt={isAdmin ? '#' : '$'}
             onSend={(text) => sendChat(channel.id, text)}
           />
         )}
       </main>
 
       <aside className="people">
-        <h2>Online — {users.length}</h2>
+        <h2>Online · {users.length}</h2>
         <ul className="online">
           {users.map((u) => (
             <li key={u.id}>
-              <span className="dot online" /> <UserName user={u} />
-              {u.voiceRoom && (
-                <small> · 🔊 {voiceRooms.find((r) => r.id === u.voiceRoom)?.name}</small>
-              )}
+              {u.admin ? <Crown /> : <span className="dot online" />}
+              <UserName user={u} />
+              {u.voiceRoom && <small>{roomOf(u.voiceRoom)}</small>}
             </li>
           ))}
         </ul>

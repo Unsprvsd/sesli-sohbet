@@ -37,13 +37,15 @@ export default function ScreenView({ name, stream, muted, volume, onClose }: Pro
   return (
     <section className="screen-view" ref={boxRef}>
       <div className="screen-head">
-        <span>🖥️ {name} is sharing their screen</span>
+        <span>
+          <span className="tag live">LIVE</span> {name} is sharing their screen
+        </span>
         <div className="screen-actions">
           <button onClick={fullscreen} title="Full screen">
-            ⛶
+            Full screen
           </button>
           <button onClick={onClose} title="Stop watching">
-            ✕
+            Close
           </button>
         </div>
       </div>

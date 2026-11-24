@@ -44,7 +44,7 @@ export default function VoicePanel(p: Props) {
 
   return (
     <section className="voice-panel">
-      <h3>🔊 {p.roomName}</h3>
+      <h3>◉ {p.roomName}</h3>
 
       <ul className="members" ref={listRef}>
         {p.members.map((u) => {
@@ -55,8 +55,7 @@ export default function VoicePanel(p: Props) {
               <div className="member-row">
                 {u.self ? (
                   <div className="member">
-                    <UserName user={u} />
-                    {u.sharing && <span className="live">🔴 LIVE</span>}
+                    <UserName user={u} meter />
                   </div>
                 ) : (
                   <button
@@ -65,11 +64,8 @@ export default function VoicePanel(p: Props) {
                     aria-expanded={open}
                     title="Set volume"
                   >
-                    <UserName user={u} />
-                    <span className="member-vol">
-                      {u.sharing && <span className="live">🔴 LIVE</span>}
-                      {volume !== 100 && ` ${volume}%`} ▾
-                    </span>
+                    <UserName user={u} meter />
+                    <span className="member-vol">{volume !== 100 && `${volume}% `}▾</span>
                   </button>
                 )}
                 {u.sharing && !u.self && (

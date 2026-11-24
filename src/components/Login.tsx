@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react'
+import { LOGO_SMALL } from './Bits'
 import { MAX_SERVER_NAME, cleanName, createServer, serverKey } from '../server'
 
 export type LoginInfo = { name: string; serverName: string; srv: string; password: string }
@@ -65,9 +66,11 @@ export default function Login({ onLogin, error: initialError = null }: Props) {
 
   return (
     <div className="center">
-      <form className="card login" onSubmit={submit}>
-        <h1>Voice Chat</h1>
-        <div className="tabs">
+      <form className="login" onSubmit={submit}>
+        <pre className="logo small" aria-label="Voice Chat">
+          {LOGO_SMALL}
+        </pre>
+        <div className="seg">
           <button
             type="button"
             className={mode === 'join' ? 'active' : ''}
@@ -106,7 +109,7 @@ export default function Login({ onLogin, error: initialError = null }: Props) {
           />
         </label>
         {error && <div className="warning">{error}</div>}
-        <button type="submit" disabled={busy}>
+        <button type="submit" className="btn" disabled={busy}>
           {mode === 'create' ? 'Create server' : 'Join'}
         </button>
       </form>
