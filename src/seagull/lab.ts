@@ -17,6 +17,7 @@ function setTab(t: typeof tab) {
   document.querySelectorAll<HTMLElement>('[data-for]').forEach((el) => (el.hidden = el.dataset.for !== t))
   $('sheet').hidden = t !== 'sheets'
   $('view').hidden = t === 'sheets'
+  $('screenRow').hidden = t === 'sheets'
   if (t === 'sheets') buildSheets()
 }
 document.querySelectorAll<HTMLButtonElement>('[data-tab]').forEach((b) => (b.onclick = () => setTab(b.dataset.tab as typeof tab)))
@@ -103,22 +104,46 @@ const off = document.createElement('canvas')
 const octx = off.getContext('2d', { willReadFrequently: true })!
 const R = SETTINGS.render
 let cols = 0, rows = 0, cellW = 4, lineH = 8
+// Virtual screen: everything is computed for SW x SH (like a real browser of
+// that size) and the picture is shrunk by k to fit this panel.
+let SW = innerWidth, SH = innerHeight, k = 1
 
 function resize() {
+  const choice = $<HTMLSelectElement>('screen').value
+  if (choice === 'fit') {
+    SW = innerWidth
+    SH = innerHeight
+    k = 1
+  } else {
+    ;[SW, SH] = choice.split('x').map(Number)
+    k = Math.min(innerWidth / SW, innerHeight / SH)
+  }
+  const cssW = SW * k, cssH = SH * k
+  view.style.width = `${cssW}px`
+  view.style.height = `${cssH}px`
+  view.style.left = `${(innerWidth - cssW) / 2}px`
+  view.style.top = `${(innerHeight - cssH) / 2}px`
   const dpr = window.devicePixelRatio || 1
-  view.width = innerWidth * dpr
-  view.height = innerHeight * dpr
-  vctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+  view.width = Math.round(cssW * dpr)
+  view.height = Math.round(cssH * dpr)
+  vctx.setTransform(dpr * k, 0, 0, dpr * k, 0, 0) // draw in virtual-screen pixels
   vctx.font = `${R.fontSize}px 'JetBrains Mono', Consolas, monospace`
   vctx.textBaseline = 'top'
   lineH = Math.round(R.fontSize * R.lineHeight)
   cellW = vctx.measureText('M').width || 4
-  cols = Math.ceil(innerWidth / cellW)
-  rows = Math.ceil(innerHeight / lineH)
+  cols = Math.ceil(SW / cellW)
+  rows = Math.ceil(SH / lineH)
   off.width = cols
   off.height = rows
+  const gullPx = Math.round(R.size * SW)
+  $('screenInfo').textContent =
+    `gull ≈ ${gullPx}px wide on this screen` + (k < 1 ? ` · shown at ${Math.round(k * 100)}%` : '')
 }
 addEventListener('resize', resize)
+$<HTMLSelectElement>('screen').onchange = () => {
+  resize()
+  flock.gulls = []
+}
 
 const flock = new SeagullFlock()
 let autoSpawn = 1
@@ -126,8 +151,11 @@ $('spawn').onclick = () => flock.spawnNew()
 
 let t = 0, turnDir = 1
 let last = performance.now()
+let frames = 0
+;(window as unknown as { __lab: object }).__lab = { flock, frames: () => frames }
 function frame(now: number) {
   requestAnimationFrame(frame)
+  frames++
   const dt = Math.min(0.1, (now - last) / 1000)
   last = now
   if (tab === 'sheets') return
@@ -170,7 +198,7 @@ function frame(now: number) {
     }
   }
 
-  vctx.clearRect(0, 0, innerWidth, innerHeight)
+  vctx.clearRect(0, 0, SW, SH)
   vctx.fillStyle = tab === 'flight' ? R.color : '#d8d8d8'
   toAscii(octx, 0, 0, cols, rows).forEach((l, y) => {
     if (l.trim()) vctx.fillText(l, 0, y * lineH)
@@ -183,9 +211,9 @@ function frame(now: number) {
       tr.push([g.x, g.y])
       if (tr.length > 2000) tr.shift()
       vctx.fillStyle = '#3a3a3a'
-      for (let i = 0; i < tr.length; i += 6) vctx.fillText('.', tr[i][0] * innerWidth, tr[i][1] * innerHeight)
+      for (let i = 0; i < tr.length; i += 6) vctx.fillText('.', tr[i][0] * SW, tr[i][1] * SH)
       vctx.fillStyle = '#9a9a9a'
-      g.route.forEach(([x, y], i) => vctx.fillText(i < g.wp ? '+' : `+${i + 1}`, x * innerWidth, y * innerHeight))
+      g.route.forEach(([x, y], i) => vctx.fillText(i < g.wp ? '+' : `+${i + 1}`, x * SW, y * SH))
     }
     for (const id of Object.keys(trails)) if (!flock.has(id)) delete trails[id]
   }
