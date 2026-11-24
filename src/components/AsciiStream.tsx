@@ -2,16 +2,19 @@ import { useEffect, useRef } from 'react'
 
 const FONT_SIZE = 14
 // Head of the beam first, tail last: dense letters fade into dots.
-const BEAM_CHARS = '@%#*+=-:.'
-// Brightness from head to tail (very faint, on black).
-const HEAD = 0x2c
-const TAIL = 0x0c
+const BEAM_CHARS = '@#&%$*+=~-:;,.'
+// Brightness from head to tail (faint, on black).
+const HEAD = 0x3c
+const TAIL = 0x0a
+// Space between letters, in letter widths (>1 so each letter can be read).
+const SPACING = 1.6
 // Lanes: height on the screen (0..1). One beam at a time per lane.
 const LANES = [0.17, 0.39, 0.62, 0.84]
 
 type Beam = {
   y: number // px
   x: number // px, position of the head
+  dir: number // -1 = right to left, +1 = left to right
   speed: number // px per second
   len: number // letters
   chars: string
@@ -55,8 +58,9 @@ export default function AsciiStream() {
       b.running = false
       b.wait = first ? rand(0.3, 5) : rand(1.5, 7)
       b.y = Math.round((LANES[lane] + rand(-0.04, 0.04)) * window.innerHeight)
-      b.speed = rand(260, 520)
-      b.len = Math.round(rand(18, 40))
+      b.dir = Math.random() < 0.5 ? -1 : 1
+      b.speed = rand(70, 140)
+      b.len = Math.round(rand(14, 30))
       // letters along the beam: denser at the head, dots at the tail
       let s = ''
       for (let i = 0; i < b.len; i++) {
@@ -67,7 +71,7 @@ export default function AsciiStream() {
     }
 
     const beams: Beam[] = LANES.map((_, i) => {
-      const b = { y: 0, x: 0, speed: 0, len: 0, chars: '', wait: 0, running: false }
+      const b = { y: 0, x: 0, dir: -1, speed: 0, len: 0, chars: '', wait: 0, running: false }
       reset(b, i, true)
       return b
     })
@@ -79,22 +83,26 @@ export default function AsciiStream() {
       const dt = Math.min(0.1, (now - last) / 1000) // cap after a hidden tab
       last = now
       const w = window.innerWidth
+      const step = cellW * SPACING
       ctx.clearRect(0, 0, w, window.innerHeight)
       beams.forEach((b, lane) => {
         if (!b.running) {
           b.wait -= dt
           if (b.wait > 0) return
           b.running = true
-          b.x = w + cellW
+          // start just outside the edge it comes from
+          b.x = b.dir < 0 ? w + step : -step
         }
-        b.x -= b.speed * dt
-        if (b.x + b.len * cellW < 0) {
+        b.x += b.dir * b.speed * dt
+        // the tail trails behind the head, opposite to the direction
+        const tailEnd = b.x - b.dir * b.len * step
+        if ((b.dir < 0 && tailEnd < -step) || (b.dir > 0 && tailEnd > w + step)) {
           reset(b, lane, false)
           return
         }
         for (let i = 0; i < b.len; i++) {
-          const cx = b.x + i * cellW
-          if (cx < -cellW || cx > w) continue
+          const cx = b.x - b.dir * i * step
+          if (cx < -step || cx > w + step) continue
           const f = 1 - i / b.len
           const c = Math.round(TAIL + (HEAD - TAIL) * f * f)
           ctx.fillStyle = `rgb(${c},${c},${c})`
