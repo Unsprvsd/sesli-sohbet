@@ -16,9 +16,9 @@ const PEAK = 0x48
 const RISE_MIN = 3
 const RISE_MAX = 10
 const FADE_MIN = 4
-const FADE_MAX = 28
+const FADE_MAX = 40
 // Part of the glows that are two rows (one long, one short), one above the other.
-const DOUBLE_CHANCE = 0.35
+const DOUBLE_CHANCE = 0.15
 // Distance between the two rows, in letter heights.
 const ROW_GAP = 1.15
 // Keep glows at least this far apart in height (part of the screen, 0..1).
@@ -105,7 +105,7 @@ export default function AsciiStream() {
       if (Math.random() < DOUBLE_CHANCE) {
         // one long + one short row; random which one is on top
         const gap = FONT_SIZE * ROW_GAP
-        const long = row(0, rand(16, FADE_MAX))
+        const long = row(0, rand(24, FADE_MAX))
         const short = row(0, rand(FADE_MIN, 9), rand(0, 4))
         const longOnTop = Math.random() < 0.5
         long.dy = longOnTop ? -gap / 2 : gap / 2
