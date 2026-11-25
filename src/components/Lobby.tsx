@@ -25,7 +25,7 @@ import {
   startScreenShare,
   useVoice,
 } from '../voice'
-import { Crown, LOGO_SMALL, Speaker } from './Bits'
+import { Crown, LOGO_SMALL, Speaker, LeaveX } from './Bits'
 import Chat from './Chat'
 import ScreenView from './ScreenView'
 import Settings from './Settings'
@@ -590,18 +590,36 @@ export default function Lobby({ name, serverName, srv, password, onLogout, onFai
           return (
             <div key={room.id} className={`room ${inside ? 'active' : ''}`}>
               <div className="row">
-                <button
-                  className="room-name"
-                  onClick={() => setMyRoom(room.id)}
-                  disabled={inside}
-                  title="Join room"
-                >
-                  <span className="label">
-                    <Speaker />
-                    {room.name}
-                  </span>
-                  {members.length > 0 && <span className="count">{members.length}</span>}
-                </button>
+                {inside ? (
+                  // I'm in this room: the speaker icon is a leave button (red X on hover).
+                  <div className="room-name">
+                    <span className="label">
+                      <button
+                        className="room-leave"
+                        onClick={() => setMyRoom(null)}
+                        title="Leave room"
+                        aria-label={`Leave ${room.name}`}
+                      >
+                        <Speaker />
+                        <LeaveX />
+                      </button>
+                      {room.name}
+                    </span>
+                    {members.length > 0 && <span className="count">{members.length}</span>}
+                  </div>
+                ) : (
+                  <button
+                    className="room-name"
+                    onClick={() => setMyRoom(room.id)}
+                    title="Join room"
+                  >
+                    <span className="label">
+                      <Speaker />
+                      {room.name}
+                    </span>
+                    {members.length > 0 && <span className="count">{members.length}</span>}
+                  </button>
+                )}
                 {adminButtons('voice', room)}
               </div>
               <RoomMembers
@@ -711,7 +729,7 @@ export default function Lobby({ name, serverName, srv, password, onLogout, onFai
                   : `hold ${keyLabel(pttKey)} to talk`}
             </small>
           )}
-          <button className="link" onClick={onLogout}>
+          <button className="link danger" onClick={onLogout}>
             Log out
           </button>
         </div>

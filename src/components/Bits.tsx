@@ -25,6 +25,15 @@ export function Speaker() {
   )
 }
 
+/** Small X (same size as the speaker), shown in red to leave a room. */
+export function LeaveX() {
+  return (
+    <svg className="leave-x" viewBox="0 0 11 11" aria-hidden="true">
+      <path d="M1.5 1.5l8 8M9.5 1.5l-8 8" fill="none" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  )
+}
+
 /** 4 vertical volume bars; they move (CSS animation) while `on`. */
 export function Meter({ on }: { on: boolean }) {
   return (

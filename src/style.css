@@ -36,6 +36,9 @@
   --font: 'JetBrains Mono', Consolas, 'Courier New', monospace;
   /* User name tints: barely coloured, almost the same light grey as --text. */
   --tint-red: #f0caca;
+  /* Leave / log out: the only strong colour in the design. */
+  --danger: #ff4d4f;
+  --danger-hover: #ff7375;
   --tint-blue: #c9d7f0;
   --tint-green: #c9e6cd;
   --tint-pink: #f0c9e3;
@@ -121,6 +124,14 @@ button:disabled {
   color: var(--text);
 }
 
+.link.danger {
+  color: var(--danger);
+}
+
+.link.danger:hover {
+  color: var(--danger-hover);
+}
+
 .tag {
   display: inline-block;
   font-size: 10px;
@@ -171,6 +182,41 @@ button:disabled {
   fill: currentColor;
   stroke: currentColor;
   vertical-align: -1px;
+}
+
+/* Speaker icon of the room I'm in = leave button: turns into a red X on hover. */
+.room-leave {
+  display: inline-grid;
+  place-items: center;
+  width: 17px;
+  height: 17px;
+  margin: -3px -2px;
+  padding: 0;
+  background: none;
+  border: none;
+  color: inherit;
+  border-radius: 3px;
+}
+
+.room-leave > svg {
+  grid-area: 1 / 1;
+}
+
+.leave-x {
+  width: 11px;
+  height: 11px;
+  stroke: var(--danger);
+  visibility: hidden;
+}
+
+.room-leave:hover .speaker,
+.room-leave:focus-visible .speaker {
+  visibility: hidden;
+}
+
+.room-leave:hover .leave-x,
+.room-leave:focus-visible .leave-x {
+  visibility: visible;
 }
 
 .room-name .label {
