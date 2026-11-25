@@ -3,3 +3,6 @@ dist
 .env
 # Private Obsidian notes (repo is public)
 vault/
+
+# made by "tsc -b" (type check)
+tsconfig.tsbuildinfo
