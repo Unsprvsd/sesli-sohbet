@@ -6,6 +6,20 @@ const FONT_SIZE = 14
 const LINE_HEIGHT = 16
 const FPS = 30
 const MOUSE_RADIUS = 8.4 // in cells
+// Letter colour (grey on black). Lower = fainter.
+const TEXT_COLOR = '#222222'
+// Soft edge around the form: letters start this far out (px) ...
+const CLEAR_MARGIN = 4
+// ... and reach full strength over this distance (px).
+const CLEAR_FADE = 240
+// Random shift of the edge per cell (part of CLEAR_FADE), so it is not a neat box.
+const CLEAR_JITTER = 0.35
+
+/** Fixed pseudo-random number 0..1 for a cell (same every frame). */
+function cellNoise(x: number, y: number) {
+  const n = Math.sin(x * 127.1 + y * 311.7) * 43758.5453
+  return n - Math.floor(n)
+}
 
 /**
  * Full-screen animated ASCII background (used behind the login form).
@@ -49,7 +63,7 @@ export default function AsciiBackground({ clearRef }: Props) {
       const w = window.innerWidth
       const h = window.innerHeight
       ctx.clearRect(0, 0, w, h)
-      ctx.fillStyle = '#2d2d2d'
+      ctx.fillStyle = TEXT_COLOR
       const cx = cols / 2
       const cy = rows / 2
       const mx = mouse.x / cellW
@@ -75,7 +89,9 @@ export default function AsciiBackground({ clearRef }: Props) {
             const py = (y + 0.5) * LINE_HEIGHT
             const ox = Math.max(r.left - px, 0, px - r.right)
             const oy = Math.max(r.top - py, 0, py - r.bottom)
-            v *= Math.min(1, Math.max(0, Math.hypot(ox, oy) - 20) / 100)
+            const d = (Math.hypot(ox, oy) - CLEAR_MARGIN) / CLEAR_FADE
+            const k = Math.min(1, Math.max(0, d + (cellNoise(x, y) - 0.5) * CLEAR_JITTER))
+            v *= k * k * (3 - 2 * k) // smoothstep: gentle start and end, no hard line
           }
           const i = Math.max(0, Math.min(RAMP.length - 1, Math.floor(v * RAMP.length)))
           line += RAMP[i]
