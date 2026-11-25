@@ -34,6 +34,11 @@
   --hover: #141414;
   --active: #1c1c1c;
   --font: 'JetBrains Mono', Consolas, 'Courier New', monospace;
+  /* User name tints: barely coloured, almost the same light grey as --text. */
+  --tint-red: #f0caca;
+  --tint-blue: #c9d7f0;
+  --tint-green: #c9e6cd;
+  --tint-pink: #f0c9e3;
   color-scheme: dark;
 }
 
@@ -592,6 +597,10 @@ pre.logo {
   white-space: nowrap;
 }
 
+.user-name[class*='tint-'] {
+  color: var(--tint);
+}
+
 .user.speaking .user-name {
   color: var(--strong);
 }
@@ -1131,7 +1140,7 @@ pre.logo {
 .msg-name {
   font-weight: 700;
   font-size: 13px;
-  color: var(--strong);
+  color: var(--tint, var(--strong));
 }
 
 .msg-name::before {
@@ -1302,4 +1311,18 @@ pre.logo {
   *::after {
     animation: none !important;
   }
+}
+
+/* User name colour (picked from the name in src/userColor.ts). */
+.tint-red {
+  --tint: var(--tint-red);
+}
+.tint-blue {
+  --tint: var(--tint-blue);
+}
+.tint-green {
+  --tint: var(--tint-green);
+}
+.tint-pink {
+  --tint: var(--tint-pink);
 }

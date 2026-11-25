@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { MAX_MESSAGE_LENGTH, type ChatMessage } from '../lobby'
+import { tintClass } from '../userColor'
 
 type Props = {
   roomName: string
@@ -56,7 +57,7 @@ export default function Chat({ roomName, messages, myName, prompt, onSend }: Pro
         {messages.map((m) => (
           <div key={m.id} className="msg">
             <div className="msg-head">
-              <span className={`msg-name ${m.name === myName ? 'me' : ''}`}>{m.name}</span>
+              <span className={`msg-name ${tintClass(m.name)} ${m.name === myName ? 'me' : ''}`}>{m.name}</span>
               <span className="msg-time">{time(m.ts)}</span>
             </div>
             <div className="msg-text">{linkify(m.text)}</div>

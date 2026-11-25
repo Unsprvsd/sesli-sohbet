@@ -1,5 +1,6 @@
 import type { OnlineUser } from '../lobby'
 import { Meter } from './Bits'
+import { tintClass } from '../userColor'
 
 type Props = {
   user: OnlineUser
@@ -14,7 +15,7 @@ export default function UserName({ user, meter, hideYou }: Props) {
   return (
     <span className={`user ${speaking ? 'speaking' : ''}`}>
       {meter && <Meter on={speaking} />}
-      <span className="user-name">
+      <span className={`user-name ${tintClass(user.name)}`}>
         {user.name}
         {user.self && !hideYou && <span className="you"> (you)</span>}
       </span>
