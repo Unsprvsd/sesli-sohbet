@@ -2,7 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { joinRoom, type MessageAction, type UserState } from 'trystero'
 import { APP_ID } from './config'
 import {
-  loadCachedConfig,
+  loadCachedConfigFor,
+  savePasswordTag,
   saveCachedConfig,
   verifyConfig,
   type ServerConfig,
@@ -163,19 +164,28 @@ export function useLobby(name: string, password: string, srv: string, epoch: num
       }
       signedRef.current = signed as SignedConfig
       saveCachedConfig(srv, signed as SignedConfig)
+      // It came through the password-encrypted room (or our own saved copy),
+      // so this password is the right one for this server.
+      savePasswordTag(srv, password)
       setConfig(next)
       return true
     },
-    [srv],
+    [srv, password],
   )
 
-  // Load the config this browser already knows for this server.
+  // Load the config this browser already knows for this server,
+  // but only with the same password as before.
   useEffect(() => {
+    let stop = false
     signedRef.current = null
     setConfig(null)
-    const cached = loadCachedConfig(srv)
-    if (cached) acceptConfig(cached)
-  }, [srv, acceptConfig])
+    loadCachedConfigFor(srv, password).then((cached) => {
+      if (cached && !stop) acceptConfig(cached)
+    })
+    return () => {
+      stop = true
+    }
+  }, [srv, password, acceptConfig])
 
   useEffect(() => {
     setStatus('connecting')

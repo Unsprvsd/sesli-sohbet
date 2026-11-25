@@ -52,7 +52,7 @@ export default function Login({ onLogin, error: initialError = null }: Props) {
     setError(null)
     setBusy(true)
     try {
-      if (mode === 'create' && (await createServer(s)) === 'exists') {
+      if (mode === 'create' && (await createServer(s, password)) === 'exists') {
         setError('This browser already has a server with this name. Use "Join" instead.')
         return
       }

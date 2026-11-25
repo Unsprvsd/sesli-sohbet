@@ -158,6 +158,37 @@ export async function signConfig(key: CryptoKey, config: ServerConfig): Promise<
 
 // --- storage in this browser ------------------------------------------------
 
+/** Short hash of server key + password, so a saved server only opens with its password. */
+async function passwordTag(key: string, password: string): Promise<string> {
+  const hash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`${key}|${password}`))
+  return toB64(hash).slice(0, 22)
+}
+
+/** Remembers that this password is the right one for this server. */
+export async function savePasswordTag(key: string, password: string) {
+  store(`pw:${key}`, await passwordTag(key, password))
+}
+
+/**
+ * The saved config, but only if `password` is the one this browser used
+ * for this server before. Old saves without a tag are trusted only for the
+ * admin (so the admin can still open their own server alone).
+ */
+export async function loadCachedConfigFor(
+  key: string,
+  password: string,
+): Promise<SignedConfig | null> {
+  const cached = loadCachedConfig(key)
+  if (!cached) return null
+  const tag = read(`pw:${key}`)
+  if (tag === null) {
+    if (!read(`admin:${key}`)) return null
+    await savePasswordTag(key, password)
+    return cached
+  }
+  return tag === (await passwordTag(key, password)) ? cached : null
+}
+
 export function loadCachedConfig(key: string): SignedConfig | null {
   const raw = read(`server:${key}`)
   if (!raw) return null
@@ -188,7 +219,10 @@ export async function loadAdminKey(key: string): Promise<CryptoKey | null> {
  * first config (1 voice room + 1 text channel). Returns false if this
  * browser already knows a server with that name (then just join it).
  */
-export async function createServer(serverName: string): Promise<'created' | 'exists'> {
+export async function createServer(
+  serverName: string,
+  password: string,
+): Promise<'created' | 'exists'> {
   const key = await serverKey(serverName)
   if (loadCachedConfig(key)) return 'exists'
 
@@ -205,5 +239,6 @@ export async function createServer(serverName: string): Promise<'created' | 'exi
   }
   store(`admin:${key}`, JSON.stringify(priv))
   saveCachedConfig(key, await signConfig(pair.privateKey, config))
+  await savePasswordTag(key, password)
   return 'created'
 }
