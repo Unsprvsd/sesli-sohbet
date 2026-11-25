@@ -177,10 +177,14 @@ export default function AsciiStream() {
 
     resize()
     window.addEventListener('resize', resize)
+    // Measure again when the web font has loaded (letter width changes).
+    document.fonts?.addEventListener('loadingdone', resize)
+    document.fonts?.ready.then(resize)
     raf = requestAnimationFrame(loop)
     return () => {
       cancelAnimationFrame(raf)
       window.removeEventListener('resize', resize)
+      document.fonts?.removeEventListener('loadingdone', resize)
     }
   }, [])
 

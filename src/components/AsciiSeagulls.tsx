@@ -245,6 +245,9 @@ export default function AsciiSeagulls({ selfId, isLeader, sendGull, onGull, name
 
     resize()
     window.addEventListener('resize', resize)
+    // Measure again when the web font has loaded (letter width changes).
+    document.fonts?.addEventListener('loadingdone', resize)
+    document.fonts?.ready.then(resize)
     // capture: true -> we see the press before any button does
     window.addEventListener('pointerdown', onPointer, { capture: true })
     window.addEventListener('click', onClick, { capture: true })
@@ -252,6 +255,7 @@ export default function AsciiSeagulls({ selfId, isLeader, sendGull, onGull, name
     return () => {
       cancelAnimationFrame(raf)
       window.removeEventListener('resize', resize)
+      document.fonts?.removeEventListener('loadingdone', resize)
       window.removeEventListener('pointerdown', onPointer, { capture: true })
       window.removeEventListener('click', onClick, { capture: true })
     }

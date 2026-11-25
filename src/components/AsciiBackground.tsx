@@ -120,6 +120,10 @@ export default function AsciiBackground({ clearRef }: Props) {
 
     resize()
     window.addEventListener('resize', onResize)
+    // The web font (JetBrains Mono) often loads after the first measure; a
+    // wrong letter width shifts the form gap and the mouse glow to the right.
+    document.fonts?.addEventListener('loadingdone', onResize)
+    document.fonts?.ready.then(onResize)
     if (reduceMotion) {
       draw(0)
     } else {
@@ -129,6 +133,7 @@ export default function AsciiBackground({ clearRef }: Props) {
     return () => {
       cancelAnimationFrame(raf)
       window.removeEventListener('resize', onResize)
+      document.fonts?.removeEventListener('loadingdone', onResize)
       window.removeEventListener('pointermove', onMove)
     }
   }, [clearRef])
