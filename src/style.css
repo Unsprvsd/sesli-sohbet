@@ -706,7 +706,7 @@ pre.logo {
   filter: grayscale(1);
 }
 
-/* Text chat drawer: a bar at the bottom; open = bottom quarter. */
+/* Text chat drawer: a bar at the bottom; open = bottom 40% of the screen. */
 .drawer {
   flex: none;
   display: flex;
@@ -715,8 +715,8 @@ pre.logo {
 }
 
 .drawer.open {
-  height: 25vh;
-  min-height: 220px;
+  height: 40vh;
+  min-height: 300px;
 }
 
 .drawer-bar {
