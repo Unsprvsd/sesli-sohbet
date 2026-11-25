@@ -601,8 +601,9 @@ pre.logo {
   color: var(--tint);
 }
 
+/* Speaking: keep the person's colour (the volume bars show who talks). */
 .user.speaking .user-name {
-  color: var(--strong);
+  color: var(--tint, var(--strong));
 }
 
 .you {
