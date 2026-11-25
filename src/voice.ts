@@ -98,6 +98,7 @@ export function useVoice(opts: Options) {
       const room = joinRoom({ appId: APP_ID, password, identity: 'none' }, `voice-${roomId}`)
       const watchAct = room.makeAction<WatchMsg>('screen-watch')
       roomRef.current = room
+      activeRoom = room
       watchActRef.current = watchAct
       watchersRef.current = new Set()
 
@@ -167,7 +168,10 @@ export function useVoice(opts: Options) {
           if (data.watch) {
             watchersRef.current.add(peerId)
             if (myScreen) {
-              room.addStream(myScreen, { target: peerId, metadata: screenMeta }).catch(() => {})
+              room
+                .addStream(myScreen, { target: peerId, metadata: screenMeta })
+                .then(() => tuneScreenSoon(room, myScreen))
+                .catch(() => {})
             }
           } else {
             watchersRef.current.delete(peerId)
@@ -190,6 +194,7 @@ export function useVoice(opts: Options) {
         stream.getTracks().forEach((t) => t.stop())
         streamRef.current = null
         roomRef.current = null
+        if (activeRoom === room) activeRoom = null
         watchActRef.current = null
         watchersRef.current = new Set()
         setScreens({})
@@ -226,6 +231,7 @@ export function useVoice(opts: Options) {
       for (const peerId of watchersRef.current) {
         room
           .addStream(screen, { target: peerId, metadata: { uid: selfId, kind: 'screen' } })
+          .then(() => tuneScreenSoon(room, screen))
           .catch(() => {})
       }
     }
@@ -262,11 +268,13 @@ export function useVoice(opts: Options) {
 
 /** Screen share quality presets. Higher = more upload per viewer. */
 export const SCREEN_QUALITIES = [
-  { id: '480p30', label: '480p · 30 fps', width: 854, height: 480, fps: 30 },
-  { id: '720p30', label: '720p · 30 fps', width: 1280, height: 720, fps: 30 },
-  { id: '1080p15', label: '1080p · 15 fps', width: 1920, height: 1080, fps: 15 },
-  { id: '1080p30', label: '1080p · 30 fps', width: 1920, height: 1080, fps: 30 },
-  { id: '1080p60', label: '1080p · 60 fps', width: 1920, height: 1080, fps: 60 },
+  // bitrate = most bits per second sent to ONE viewer. Without it the browser
+  // stays near ~2.5 Mbit/s, which makes 1080p blurry.
+  { id: '480p30', label: '480p · 30 fps', width: 854, height: 480, fps: 30, bitrate: 1_500_000 },
+  { id: '720p30', label: '720p · 30 fps', width: 1280, height: 720, fps: 30, bitrate: 3_500_000 },
+  { id: '1080p15', label: '1080p · 15 fps', width: 1920, height: 1080, fps: 15, bitrate: 4_000_000 },
+  { id: '1080p30', label: '1080p · 30 fps', width: 1920, height: 1080, fps: 30, bitrate: 6_000_000 },
+  { id: '1080p60', label: '1080p · 60 fps', width: 1920, height: 1080, fps: 60, bitrate: 9_000_000 },
 ] as const
 
 export type ScreenQuality = (typeof SCREEN_QUALITIES)[number]
@@ -274,6 +282,44 @@ export const DEFAULT_SCREEN_QUALITY = '720p30'
 
 export function findScreenQuality(id: string): ScreenQuality {
   return SCREEN_QUALITIES.find((q) => q.id === id) ?? SCREEN_QUALITIES[1]
+}
+
+// The quality chosen for each screen share, and the voice room it is sent in.
+const screenQualityOf = new WeakMap<MediaStream, ScreenQuality>()
+let activeRoom: Room | null = null
+
+/**
+ * Raises the send limit of my screen video to the chosen quality, for every
+ * viewer. WebRTC picks a low limit by itself; this is the main fix for a
+ * blurry screen share.
+ */
+async function tuneScreenSenders(room: Room | null, stream: MediaStream) {
+  const q = screenQualityOf.get(stream)
+  const track = stream.getVideoTracks()[0]
+  if (!room || !q || !track) return
+  for (const peer of Object.values(room.getPeers())) {
+    const pc = peer.connection
+    if (!pc) continue
+    for (const sender of pc.getSenders()) {
+      if (sender.track !== track) continue
+      const params = sender.getParameters()
+      if (!params.encodings?.length) continue
+      for (const enc of params.encodings) {
+        enc.maxBitrate = q.bitrate
+        enc.maxFramerate = q.fps
+        enc.scaleResolutionDownBy = 1
+      }
+      // When the network is short: 60 fps keeps it smooth, others keep it sharp.
+      ;(params as { degradationPreference?: string }).degradationPreference =
+        q.fps >= 60 ? 'maintain-framerate' : 'maintain-resolution'
+      await sender.setParameters(params).catch(() => {})
+    }
+  }
+}
+
+/** Tune now and a bit later (the connection may still be setting up). */
+function tuneScreenSoon(room: Room, stream: MediaStream) {
+  for (const ms of [0, 1500, 5000]) setTimeout(() => tuneScreenSenders(room, stream), ms)
 }
 
 function videoConstraints(q: ScreenQuality): MediaTrackConstraints {
@@ -291,6 +337,8 @@ function videoConstraints(q: ScreenQuality): MediaTrackConstraints {
 export async function applyScreenQuality(stream: MediaStream, q: ScreenQuality) {
   const video = stream.getVideoTracks()[0]
   if (!video) return null
+  screenQualityOf.set(stream, q)
+  tuneScreenSenders(activeRoom, stream)
   // 'motion' keeps it smooth (games), 'detail' keeps text sharp.
   video.contentHint = q.fps >= 60 ? 'motion' : 'detail'
   try {
@@ -311,7 +359,11 @@ export async function startScreenShare(q: ScreenQuality): Promise<MediaStream> {
     selfBrowserSurface: 'exclude', // don't offer this tab (mirror effect)
     surfaceSwitching: 'include',
   }
-  return navigator.mediaDevices.getDisplayMedia(options as DisplayMediaStreamOptions)
+  const stream = await navigator.mediaDevices.getDisplayMedia(options as DisplayMediaStreamOptions)
+  const video = stream.getVideoTracks()[0]
+  if (video) video.contentHint = q.fps >= 60 ? 'motion' : 'detail'
+  screenQualityOf.set(stream, q)
+  return stream
 }
 
 export const canShareScreen = () =>
