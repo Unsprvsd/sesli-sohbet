@@ -26,6 +26,16 @@ export type ShapeAsciiOptions = {
 /** Every printable ASCII letter (space … ~). */
 export const ALL_ASCII = Array.from({ length: 95 }, (_, i) => String.fromCharCode(32 + i)).join('')
 
+/** Ready letter sets for ShapeAsciiOptions.chars */
+export const LETTER_SETS = {
+  /** punctuation and lines only — calm, "drawn" look */
+  symbols: ` .,:;'"\`^-_~=+*<>/\\|()[]{}!?#%@&$`,
+  /** symbols + a few round / straight letters */
+  mixed: ` .,:;'"\`^-_~=+*<>/\\|()[]{}!?#%@&$oOvVLTJYcCuU`,
+  /** every printable ASCII letter (sharpest, but looks like text) */
+  all: ALL_ASCII,
+}
+
 const Q = 10 // cache: each of the 6 values is rounded to one of Q steps
 const DIMS = 6
 

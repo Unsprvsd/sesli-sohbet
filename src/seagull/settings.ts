@@ -3,18 +3,11 @@
 // Positions are 0..1 of the screen (x = width, y = height, 0 = top).
 
 import type { P2 } from './shape'
+// letter sets for render.shape.chars live in src/ascii/shapeAscii.ts (shared with the editor)
+import { LETTER_SETS } from '../ascii/shapeAscii'
 
+export { LETTER_SETS }
 export type ScreenSize = { w: number; h: number } // px
-
-/** Letter sets for render.shape.chars */
-export const LETTER_SETS = {
-  /** punctuation and lines only — calm, "drawn" look */
-  symbols: ` .,:;'"\`^-_~=+*<>/\\|()[]{}!?#%@&$`,
-  /** symbols + a few round / straight letters */
-  mixed: ` .,:;'"\`^-_~=+*<>/\\|()[]{}!?#%@&$oOvVLTJYcCuU`,
-  /** every printable ASCII letter (sharpest, but looks like text) */
-  all: Array.from({ length: 95 }, (_, i) => String.fromCharCode(32 + i)).join(''),
-}
 
 export const SETTINGS = {
   flight: {

@@ -130,6 +130,10 @@ Discord/
   (6-part shape vectors, Alex Harri method), `GullPainter` in `src/seagull/engine.ts`,
   settings `render.letters` / `render.shape`; lab has Letters / Set / Contrast + compare.
   See vault/Decisions/020.
+- ASCII editor v1 (2026-11-26, local, dev only): http://localhost:5173/ascii-editor.html
+  (`ascii-editor.html`, `src/editor/doc.ts`, `src/editor/main.ts`). Paint view + live
+  shape-matched ASCII, tools, hand letters, frames, undo, image import, export
+  .txt / .ts / project .json, autosave. See vault/Decisions/021.
 - Rule: test big changes on localhost BEFORE pushing — friends use the live site.
 - Speaking state is self-reported through lobby presence (no peer-id mapping
   between lobby and voice rooms needed).

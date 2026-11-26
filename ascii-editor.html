@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ASCII Editor</title>
+<!-- Dev only (localhost:5173/ascii-editor.html). Not part of the live site:
+     the build only includes index.html. Code: src/editor/. Letters: src/ascii/shapeAscii.ts -->
+<style>
+  @font-face { font-family: 'JetBrains Mono'; src: url('/src/assets/fonts/JetBrainsMono-Regular.woff2') format('woff2'); font-weight: 400; }
+  :root { --bg: #000; --panel: #070707; --text: #e6e6e6; --muted: #7c7c7c; --line: #262626; --line2: #3a3a3a; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
+    font: 12px/1.4 'JetBrains Mono', Consolas, 'Courier New', monospace; }
+  body { display: grid; grid-template-rows: auto 1fr auto auto; grid-template-columns: auto 1fr; height: 100vh; }
+  header { grid-column: 1 / 3; display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center;
+    padding: 8px 12px; border-bottom: 1px solid var(--line); background: var(--panel); }
+  header b { font-weight: 400; color: var(--text); }
+  aside { grid-row: 2 / 4; display: flex; flex-direction: column; gap: 10px; padding: 10px; width: 190px;
+    border-right: 1px solid var(--line); background: var(--panel); overflow-y: auto; }
+  main { overflow: auto; padding: 16px; display: flex; flex-wrap: wrap; gap: 16px; align-content: flex-start; }
+  .view { display: flex; flex-direction: column; gap: 4px; }
+  .view span { color: var(--muted); font-size: 11px; }
+  canvas.board { outline: 1px solid var(--line2); cursor: crosshair; touch-action: none; display: block; }
+  #frames { display: flex; gap: 8px; align-items: center; padding: 8px 12px; border-top: 1px solid var(--line);
+    background: var(--panel); overflow-x: auto; }
+  #thumbs { display: flex; gap: 4px; }
+  #thumbs button { padding: 2px; display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 10px; }
+  #thumbs canvas { display: block; image-rendering: auto; }
+  #status { grid-column: 1 / 3; padding: 4px 12px; color: var(--muted); font-size: 11px; border-top: 1px solid var(--line); }
+  button, select, input[type=text], input[type=number] { background: transparent; color: var(--text);
+    border: 1px solid var(--line2); padding: 3px 8px; font: inherit; }
+  button { cursor: pointer; }
+  button:hover { border-color: #777; }
+  button.on { background: var(--text); color: #000; }
+  select option { background: #000; }
+  input[type=number] { width: 56px; }
+  input[type=range] { width: 100%; accent-color: #ddd; }
+  label { color: var(--muted); display: flex; gap: 6px; align-items: center; }
+  .group { display: flex; flex-direction: column; gap: 4px; }
+  .group > .title { color: var(--muted); font-size: 11px; text-transform: lowercase; }
+  .tools { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+  .tools button { text-align: left; }
+  .row { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; }
+  #letter { width: 44px; text-align: center; font-size: 14px; }
+  .hint { color: var(--muted); font-size: 11px; }
+  kbd { color: var(--muted); font: inherit; font-size: 10px; }
+</style>
+</head>
+<body>
+<header>
+  <b>ascii-editor</b>
+  <label>name <input id="name" type="text" size="14" /></label>
+  <label>grid <input id="cols" type="number" min="4" max="300" /> x <input id="rows" type="number" min="2" max="200" /></label>
+  <label>zoom
+    <select id="zoom"><option>10</option><option>12</option><option selected>14</option><option>18</option><option>24</option></select>
+  </label>
+  <label>view
+    <select id="viewMode"><option value="both">paint | ascii</option><option value="ascii">ascii only</option><option value="paint">paint only</option></select>
+  </label>
+  <span style="flex:1"></span>
+  <button id="copy" title="copy the current frame as text">copy text</button>
+  <button id="exportTxt">.txt</button>
+  <button id="exportTs" title="data file for the app (src/...)">.ts</button>
+  <button id="save">save project</button>
+  <button id="open">open project</button>
+  <button id="new">new</button>
+  <input id="openFile" type="file" accept=".json,application/json" hidden />
+</header>
+
+<aside>
+  <div class="group">
+    <div class="title">tools</div>
+    <div class="tools">
+      <button data-tool="brush">brush <kbd>B</kbd></button>
+      <button data-tool="eraser">eraser <kbd>E</kbd></button>
+      <button data-tool="line">line <kbd>L</kbd></button>
+      <button data-tool="rect">rect <kbd>R</kbd></button>
+      <button data-tool="ellipse">ellipse <kbd>O</kbd></button>
+      <button data-tool="letter">letter <kbd>T</kbd></button>
+    </div>
+    <label><input id="filled" type="checkbox" /> filled shapes</label>
+  </div>
+
+  <div class="group">
+    <div class="title">brush size <span id="sizeV"></span> <kbd>[ ]</kbd></div>
+    <input id="size" type="range" min="0.2" max="12" step="0.1" value="1.5" />
+    <div class="title">ink <span id="inkV"></span></div>
+    <input id="ink" type="range" min="5" max="100" step="5" value="100" />
+    <span class="hint">100% = full letters @ # $ · ~40% = thin line letters - / \ ' ,</span>
+  </div>
+
+  <div class="group">
+    <div class="title">letter tool</div>
+    <div class="row"><input id="letter" type="text" maxlength="1" value="/" /> <span class="hint">click = place<br />right-click = remove</span></div>
+  </div>
+
+  <div class="group">
+    <div class="title">letters (look)</div>
+    <select id="set">
+      <option value="symbols">symbols</option>
+      <option value="mixed">mixed</option>
+      <option value="all">all ASCII</option>
+      <option value="custom">custom…</option>
+    </select>
+    <input id="custom" type="text" placeholder="your letters" hidden />
+    <div class="title">contrast <span id="contrastV"></span></div>
+    <input id="contrast" type="range" min="1" max="4" step="0.1" />
+    <div class="title">min ink <span id="minInkV"></span></div>
+    <input id="minInk" type="range" min="0" max="0.4" step="0.01" />
+  </div>
+
+  <div class="group">
+    <div class="title">show</div>
+    <label><input id="grid" type="checkbox" /> grid</label>
+    <label><input id="onion" type="checkbox" checked /> previous frame (onion)</label>
+    <label><input id="handMarks" type="checkbox" checked /> mark hand letters</label>
+  </div>
+
+  <div class="group">
+    <div class="title">image</div>
+    <button id="import">import image…</button>
+    <label><input id="invert" type="checkbox" /> invert (dark drawing on light)</label>
+    <input id="importFile" type="file" accept="image/*" hidden />
+    <button id="clear">clear frame</button>
+  </div>
+</aside>
+
+<main id="main">
+  <div class="view" id="paintBox"><span>paint</span><canvas id="paint" class="board"></canvas></div>
+  <div class="view" id="asciiBox"><span>ascii (live)</span><canvas id="ascii" class="board"></canvas></div>
+</main>
+
+<div id="frames">
+  <button id="play" title="Space">play</button>
+  <label>fps <input id="fps" type="number" min="1" max="60" /></label>
+  <button id="addFrame" title="new empty frame">+ new</button>
+  <button id="dupFrame" title="copy this frame">+ copy</button>
+  <button id="delFrame">delete</button>
+  <button id="left" title="move frame left">&lt;</button>
+  <button id="right" title="move frame right">&gt;</button>
+  <div id="thumbs"></div>
+</div>
+<div id="status"></div>
+
+<script type="module" src="/src/editor/main.ts"></script>
+</body>
+</html>
