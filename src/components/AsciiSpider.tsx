@@ -150,7 +150,7 @@ export default function AsciiSpider({ selfId, isLeader, sendGull, onGull, nameOf
       }
       drawn = true
       const lines = layoutLines(root, canvas)
-      for (const s of layer.spiders) s.updateLines(dt, layer.H, lines)
+      for (const s of layer.spiders) s.updateLines(dt, layer.W, layer.H, lines)
       layer.spiders = layer.spiders.filter((s) => !s.done)
       layer.draw()
       const ctx = canvas.getContext('2d')!
