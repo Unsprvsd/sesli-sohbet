@@ -7,5 +7,5 @@
 
 export { SHAPE } from './shape'
 export { SHEETS, type ActionKey, type Pose, type Sheet } from './sheets'
-export { SETTINGS, type ScreenSize } from './settings'
-export { SeagullFlock, drawGull, toAscii, mixPose, seededRandom, type Gull, type Wave } from './engine'
+export { SETTINGS, LETTER_SETS, type ScreenSize } from './settings'
+export { SeagullFlock, GullPainter, drawGull, toAscii, mixPose, seededRandom, type Gull, type Wave } from './engine'

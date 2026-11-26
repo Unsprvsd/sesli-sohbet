@@ -4,6 +4,7 @@
 import { SHAPE, type P2, type P3 } from './shape'
 import { SHEETS, type ActionKey, type Pose } from './sheets'
 import { SETTINGS, type ScreenSize } from './settings'
+import { ShapeAscii } from '../ascii/shapeAscii'
 
 const TAU = Math.PI * 2
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t
@@ -81,6 +82,68 @@ export function toAscii(ctx: CanvasRenderingContext2D, x0: number, y0: number, w
     out.push(line)
   }
   return out
+}
+
+/**
+ * Hidden canvas + letter picking, shared by the server screen and the lab.
+ * 'shape' mode: sx x sy hidden pixels per letter, letters picked by shape (ShapeAscii).
+ * 'ramp' mode: 1 hidden pixel per letter, letters by brightness (old way).
+ */
+export class GullPainter {
+  readonly canvas = document.createElement('canvas')
+  readonly ctx = this.canvas.getContext('2d', { willReadFrequently: true })!
+  sx = 1
+  sy = 1
+  cols = 0
+  rows = 0
+  private matcher: ShapeAscii | null = null
+  private key = ''
+
+  /** Call on resize / font change: letter grid cols x rows, cell cellW x lineH px. */
+  setup(family: string, fontSize: number, cellW: number, lineH: number, cols: number, rows: number,
+    mode: 'shape' | 'ramp' = SETTINGS.render.letters) {
+    const R = SETTINGS.render
+    // fonts status: measure the letters again once the web font has loaded
+    const key = [family, fontSize, cellW, lineH, document.fonts?.status, mode, R.shape.chars, R.shape.sub, R.shape.minInk].join('|')
+    if (key !== this.key) {
+      this.key = key
+      this.matcher = mode === 'shape' ? new ShapeAscii(family, fontSize, cellW, lineH, R.shape) : null
+    }
+    this.matcher?.setContrast(R.shape.contrast)
+    this.sx = this.matcher?.sx ?? 1
+    this.sy = this.matcher?.sy ?? 1
+    this.cols = cols
+    this.rows = rows
+    this.canvas.width = cols * this.sx
+    this.canvas.height = rows * this.sy
+  }
+
+  /** Paint an area (in letter cells) black. */
+  clear(x0 = 0, y0 = 0, w = this.cols, h = this.rows) {
+    const c = this.ctx
+    c.setTransform(1, 0, 0, 1, 0, 0)
+    c.fillStyle = '#000'
+    c.fillRect(x0 * this.sx, y0 * this.sy, w * this.sx, h * this.sy)
+  }
+
+  /**
+   * Draw one gull centred at cell (cx, cy). s = letter cells per bird unit,
+   * ratio = cellW / lineH (letters are taller than wide).
+   */
+  draw(pose: Pose, yaw: number, tilt: number, cx: number, cy: number, s: number, ratio: number) {
+    const c = this.ctx
+    c.setTransform(1, 0, 0, 1, 0, 0)
+    c.translate(cx * this.sx, cy * this.sy)
+    c.scale(s * this.sx, s * ratio * this.sy)
+    drawGull(c, pose, yaw, tilt)
+  }
+
+  /** Letters for an area (in cells), one string per row. */
+  lines(x0 = 0, y0 = 0, w = this.cols, h = this.rows): string[] {
+    if (!this.matcher) return toAscii(this.ctx, x0, y0, w, h)
+    const d = this.ctx.getImageData(x0 * this.sx, y0 * this.sy, w * this.sx, h * this.sy).data
+    return this.matcher.convert(d, w, h)
+  }
 }
 
 export function mixPose(p: Pose, q: Pose, k: number): Pose {

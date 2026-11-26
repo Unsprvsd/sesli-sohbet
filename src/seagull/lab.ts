@@ -1,14 +1,35 @@
 // Seagull Lab (dev only): seagull-lab.html. Shows the animation sheets, a big
 // preview and the real flight engine — all from shape.ts / sheets.ts / settings.ts.
+// The "Letters" row changes SETTINGS only on this page (to try things out);
+// copy good values into settings.ts.
 
-import { SETTINGS, SHAPE, SHEETS, SeagullFlock, drawGull, toAscii, type ActionKey } from './index'
+import { GullPainter, LETTER_SETS, SETTINGS, SHAPE, SHEETS, SeagullFlock, type ActionKey, type Pose } from './index'
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T
 const KEYS = Object.keys(SHEETS) as ActionKey[]
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t
+const FONT = `'JetBrains Mono', Consolas, monospace`
+const R = SETTINGS.render
 
 let tab: 'sheets' | 'preview' | 'flight' = 'sheets'
 let action: ActionKey = 'level'
+
+// ---- letters: shape / brightness / compare ----
+const fromSettings = { letters: R.letters, chars: R.shape.chars, contrast: R.shape.contrast }
+type Mode = 'shape' | 'ramp' | 'compare'
+let mode: Mode = R.letters
+function readLetters() {
+  const l = $<HTMLSelectElement>('letters').value
+  mode = l === 'settings' ? fromSettings.letters : (l as Mode)
+  const cs = $<HTMLSelectElement>('charset').value
+  R.shape.chars = cs === 'settings' ? fromSettings.chars : LETTER_SETS[cs as keyof typeof LETTER_SETS]
+  R.shape.contrast = +$<HTMLInputElement>('contrast').value
+  $('contrastV').textContent = R.shape.contrast.toFixed(1)
+  resize()
+  if (tab === 'sheets') buildSheets()
+}
+$<HTMLInputElement>('contrast').value = String(fromSettings.contrast)
+$('letters').onchange = $('charset').onchange = $('contrast').oninput = readLetters
 
 // ---- tabs ----
 function setTab(t: typeof tab) {
@@ -23,26 +44,28 @@ function setTab(t: typeof tab) {
 document.querySelectorAll<HTMLButtonElement>('[data-tab]').forEach((b) => (b.onclick = () => setTab(b.dataset.tab as typeof tab)))
 
 // ---- sheets ----
-const FRAMES = 8, FW = 50, FH = 24
-const sc = document.createElement('canvas')
-sc.width = FW
-sc.height = FH
-const sctx = sc.getContext('2d', { willReadFrequently: true })!
+const FRAMES = 8, FW = 50, FH = 24, SFONT = 6, SLINE = 7
+const sheetShape = new GullPainter()
+const sheetRamp = new GullPainter()
 let sheetText = ''
 
-function cellRatio(fontPx: number, lineH: number) {
+function cellW(fontPx: number) {
   const c = document.createElement('canvas').getContext('2d')!
-  c.font = `${fontPx}px 'JetBrains Mono', Consolas, monospace`
-  return c.measureText('M').width / lineH
+  c.font = `${fontPx}px ${FONT}`
+  return c.measureText('M').width
 }
 
 function buildSheets() {
   const [vy, vt] = $<HTMLSelectElement>('sheetView').value.split(',').map(Number)
-  const ratio = cellRatio(6, 7)
+  const cw = cellW(SFONT)
+  const ratio = cw / SLINE
+  sheetShape.setup(FONT, SFONT, cw, SLINE, FW, FH, 'shape')
+  sheetRamp.setup(FONT, SFONT, cw, SLINE, FW, FH, 'ramp')
+  const painters = mode === 'compare' ? [sheetRamp, sheetShape] : [mode === 'shape' ? sheetShape : sheetRamp]
   const s = (FW * 0.95) / SHAPE.width
   const root = $('sheet')
   root.innerHTML = ''
-  sheetText = `ASCII seagull - animation sheets (${FRAMES} frames per action, ${FW}x${FH} letters)\n\n`
+  sheetText = `ASCII seagull - animation sheets (${FRAMES} frames per action, ${FW}x${FH} letters, letters: ${mode})\n\n`
   for (const k of KEYS) {
     const a = SHEETS[k]
     const box = document.createElement('div')
@@ -54,21 +77,20 @@ function buildSheets() {
     for (let f = 0; f < FRAMES; f++) {
       const pose = a.pose(k === 'turn' ? f / (FRAMES - 1) : f / FRAMES)
       const yaw = k === 'turn' ? lerp(vy, Math.PI - vy, pose.turn ?? 0) : vy
-      sctx.setTransform(1, 0, 0, 1, 0, 0)
-      sctx.fillStyle = '#000'
-      sctx.fillRect(0, 0, FW, FH)
-      sctx.translate(FW / 2, FH / 2)
-      sctx.scale(s, s * ratio)
-      drawGull(sctx, pose, yaw, vt)
-      const lines = toAscii(sctx, 0, 0, FW, FH)
       const fr = document.createElement('div')
       fr.className = 'fr'
       fr.innerHTML = `<span>${k} ${f + 1}/${FRAMES}</span>`
-      const pre = document.createElement('pre')
-      pre.textContent = lines.join('\n')
-      fr.appendChild(pre)
+      sheetText += `-- frame ${f + 1} --\n`
+      for (const p of painters) {
+        p.clear()
+        p.draw(pose, yaw, vt, FW / 2, FH / 2, s, ratio)
+        const lines = p.lines()
+        const pre = document.createElement('pre')
+        pre.textContent = lines.join('\n')
+        fr.appendChild(pre)
+        sheetText += `${lines.join('\n')}\n`
+      }
       row.appendChild(fr)
-      sheetText += `-- frame ${f + 1} --\n${lines.join('\n')}\n`
     }
     box.appendChild(row)
     root.appendChild(box)
@@ -100,10 +122,9 @@ for (const k of KEYS) {
 // ---- live canvas (preview + flight) ----
 const view = $<HTMLCanvasElement>('view')
 const vctx = view.getContext('2d')!
-const off = document.createElement('canvas')
-const octx = off.getContext('2d', { willReadFrequently: true })!
-const R = SETTINGS.render
-let cols = 0, rows = 0, cellW = 4, lineH = 8
+const liveShape = new GullPainter()
+const liveRamp = new GullPainter()
+let cols = 0, rows = 0, cw = 4, lineH = 8
 // Virtual screen: everything is computed for SW x SH (like a real browser of
 // that size) and the picture is shrunk by k to fit this panel.
 let SW = innerWidth, SH = innerHeight, k = 1
@@ -127,14 +148,14 @@ function resize() {
   view.width = Math.round(cssW * dpr)
   view.height = Math.round(cssH * dpr)
   vctx.setTransform(dpr * k, 0, 0, dpr * k, 0, 0) // draw in virtual-screen pixels
-  vctx.font = `${R.fontSize}px 'JetBrains Mono', Consolas, monospace`
+  vctx.font = `${R.fontSize}px ${FONT}`
   vctx.textBaseline = 'top'
   lineH = Math.round(R.fontSize * R.lineHeight)
-  cellW = vctx.measureText('M').width || 4
-  cols = Math.ceil(SW / cellW)
+  cw = vctx.measureText('M').width || 4
+  cols = Math.ceil(SW / cw)
   rows = Math.ceil(SH / lineH)
-  off.width = cols
-  off.height = rows
+  liveShape.setup(FONT, R.fontSize, cw, lineH, cols, rows, 'shape')
+  liveRamp.setup(FONT, R.fontSize, cw, lineH, cols, rows, 'ramp')
   const gullPx = Math.round(R.size * SW)
   $('screenInfo').textContent =
     `gull ≈ ${gullPx}px wide on this screen` + (k < 1 ? ` · shown at ${Math.round(k * 100)}%` : '')
@@ -159,12 +180,11 @@ function frame(now: number) {
   const dt = Math.min(0.1, (now - last) / 1000)
   last = now
   if (tab === 'sheets') return
-  const ratio = cellW / lineH
+  const ratio = cw / lineH
+  const painters = mode === 'compare' ? [liveRamp, liveShape] : [mode === 'shape' ? liveShape : liveRamp]
 
-  octx.setTransform(1, 0, 0, 1, 0, 0)
-  octx.fillStyle = '#000'
-  octx.fillRect(0, 0, cols, rows)
-
+  // what to draw this frame: [pose, yaw, tilt, x cells, y cells, cells per bird unit]
+  const items: [Pose, number, number, number, number, number][] = []
   if (tab === 'preview') {
     const a = SHEETS[action]
     t += dt * a.hz * (a.flaps ? SETTINGS.flight.flapHz : 1)
@@ -177,10 +197,11 @@ function frame(now: number) {
     const yaw = action === 'turn'
       ? (turnDir > 0 ? lerp(v, Math.PI - v, pose.turn ?? 0) : lerp(Math.PI - v, v, pose.turn ?? 0))
       : v
-    const s = (cols * +$<HTMLInputElement>('pvSize').value) / SHAPE.width
-    octx.translate(cols / 2, rows / 2)
-    octx.scale(s, s * ratio)
-    drawGull(octx, pose, yaw, 0.3)
+    const size = +$<HTMLInputElement>('pvSize').value * (mode === 'compare' ? 0.5 : 1)
+    const s = (cols * size) / SHAPE.width
+    // compare: one gull in each half (old left, new right)
+    const xs = mode === 'compare' ? [cols / 4, (cols * 3) / 4] : [cols / 2]
+    for (const x of xs) items.push([pose, yaw, 0.3, x, rows / 2, s])
   } else {
     // flight: the app's engine, as leader, spawning often for testing
     autoSpawn -= dt
@@ -190,19 +211,30 @@ function frame(now: number) {
     }
     flock.update(dt)
     const s = (cols * R.size) / SHAPE.width
-    for (const g of flock.gulls) {
-      octx.setTransform(1, 0, 0, 1, 0, 0)
-      octx.translate(g.x * cols, g.y * rows)
-      octx.scale(s, s * ratio)
-      drawGull(octx, g.pose, g.yaw, g.tilt)
-    }
+    for (const g of flock.gulls) items.push([g.pose, g.yaw, g.tilt, g.x * cols, g.y * rows, s])
   }
+
+  const out: string[][] = painters.map((p) => {
+    p.clear()
+    for (const [pose, yaw, tilt, x, y, s] of items) p.draw(pose, yaw, tilt, x, y, s, ratio)
+    return p.lines()
+  })
+  // compare: left half from the old way, right half from the new way
+  const half = Math.floor(cols / 2)
+  const lines = out.length === 2 ? out[0].map((l, y) => l.slice(0, half) + out[1][y].slice(half)) : out[0]
 
   vctx.clearRect(0, 0, SW, SH)
   vctx.fillStyle = tab === 'flight' ? R.color : '#d8d8d8'
-  toAscii(octx, 0, 0, cols, rows).forEach((l, y) => {
+  lines.forEach((l, y) => {
     if (l.trim()) vctx.fillText(l, 0, y * lineH)
   })
+  if (out.length === 2) {
+    vctx.fillStyle = '#333'
+    vctx.fillRect(half * cw, 0, 1, SH)
+    vctx.fillStyle = '#7c7c7c'
+    vctx.fillText('old: brightness', 8, SH - lineH * 3)
+    vctx.fillText('new: shape', half * cw + 8, SH - lineH * 3)
+  }
 
   // flight: show each gull's planned route (+) and its trail (.)
   if (tab === 'flight') {
@@ -220,6 +252,9 @@ function frame(now: number) {
 }
 const trails: Record<string, [number, number][]> = {}
 
-resize()
-setTab('sheets')
-requestAnimationFrame(frame)
+// wait for the web font, so the letter shapes are measured with the right font
+document.fonts.load(`${R.fontSize}px 'JetBrains Mono'`).finally(() => {
+  readLetters()
+  setTab('sheets')
+  requestAnimationFrame(frame)
+})

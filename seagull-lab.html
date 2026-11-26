@@ -8,6 +8,8 @@
      the build only includes index.html. Uses the same files as the app:
      src/seagull/shape.ts, sheets.ts, settings.ts. -->
 <style>
+  /* same font as the app, so letter shapes match */
+  @font-face { font-family: 'JetBrains Mono'; src: url('/src/assets/fonts/JetBrainsMono-Regular.woff2') format('woff2'); font-weight: 400; }
   :root { --bg: #000; --text: #e6e6e6; --muted: #7c7c7c; --line: #262626; }
   html, body { margin: 0; min-height: 100%; background: var(--bg); color: var(--text);
     font: 13px/1.4 'JetBrains Mono', Consolas, 'Courier New', monospace; }
@@ -23,7 +25,7 @@
   input[type=range] { width: 130px; accent-color: #ddd; }
   .hint { color: var(--muted); font-size: 11px; }
   [hidden] { display: none !important; }
-  #sheet { padding: 170px 16px 32px; position: relative; }
+  #sheet { padding: 210px 16px 32px; position: relative; }
   .act { margin: 0 0 28px; }
   .act h3 { margin: 0 0 2px; font-size: 13px; }
   .act p { margin: 0 0 8px; color: var(--muted); font-size: 11px; }
@@ -56,6 +58,25 @@
   <div class="row" data-for="flight">
     <button id="spawn">Spawn gull</button>
     <span class="hint">same engine, size and colour as the server screen; auto-spawn every few seconds</span>
+  </div>
+  <div class="row">
+    <label>Letters
+      <select id="letters">
+        <option value="settings">from settings.ts</option>
+        <option value="shape">by shape (new)</option>
+        <option value="ramp">by brightness (old)</option>
+        <option value="compare">compare: old | new</option>
+      </select>
+    </label>
+    <label>Set
+      <select id="charset">
+        <option value="settings">from settings.ts</option>
+        <option value="symbols">symbols</option>
+        <option value="mixed">mixed</option>
+        <option value="all">all ASCII</option>
+      </select>
+    </label>
+    <label>Contrast <input id="contrast" type="range" min="1" max="4" step="0.1" /> <span id="contrastV"></span></label>
   </div>
   <div class="row" id="screenRow">
     <label>Screen

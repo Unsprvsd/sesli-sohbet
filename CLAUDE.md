@@ -126,9 +126,27 @@ Discord/
   text channel, ▲/▼ toggles it. LIVE.
 - Screen share quality presets (480p30 / 720p30 default / 1080p15 / 1080p30 / 1080p60),
   changeable while sharing via applyConstraints. LIVE (2026-11-24).
+- Seagull letters picked by SHAPE (2026-11-26, local): shared `src/ascii/shapeAscii.ts`
+  (6-part shape vectors, Alex Harri method), `GullPainter` in `src/seagull/engine.ts`,
+  settings `render.letters` / `render.shape`; lab has Letters / Set / Contrast + compare.
+  See vault/Decisions/020.
 - Rule: test big changes on localhost BEFORE pushing — friends use the live site.
 - Speaking state is self-reported through lobby presence (no peer-id mapping
   between lobby and voice rooms needed).
+
+## ASCII art research (read before any new ASCII visual)
+
+Research on ASCII rendering (2026-11-26) lives in the vault:
+`vault/Research/ASCII/` — start with `README.md` (what to use for what).
+- `Techniques.md` — ramps, coverage, shape-vector matching (sharp edges), edge
+  letters, braille / blocks, dithering, animation ideas, speed tricks
+- `Web libraries.md` — textmode.js, p5.asciify, play.core, three.js AsciiEffect, figlet.js
+- `Python and other languages.md` — offline tools (Pillow script, ascii_magic,
+  pyfiglet, asciimatics, drawille, chafa, ascii-image-converter)
+- `Sites and tools.md` — converters (Grainrad), editors (REXPaint), archives
+- `Artists and inspiration.md` — artists, coders, games, ideas for the app
+Default: own Canvas 2D code, data in its own files (like `src/seagull/`);
+a library only if needed and only after the user approves it.
 
 ## Known risk
 

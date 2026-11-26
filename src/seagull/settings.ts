@@ -6,6 +6,16 @@ import type { P2 } from './shape'
 
 export type ScreenSize = { w: number; h: number } // px
 
+/** Letter sets for render.shape.chars */
+export const LETTER_SETS = {
+  /** punctuation and lines only — calm, "drawn" look */
+  symbols: ` .,:;'"\`^-_~=+*<>/\\|()[]{}!?#%@&$`,
+  /** symbols + a few round / straight letters */
+  mixed: ` .,:;'"\`^-_~=+*<>/\\|()[]{}!?#%@&$oOvVLTJYcCuU`,
+  /** every printable ASCII letter (sharpest, but looks like text) */
+  all: Array.from({ length: 95 }, (_, i) => String.fromCharCode(32 + i)).join(''),
+}
+
 export const SETTINGS = {
   flight: {
     flapHz: 1.2, // wing beats per second (level flight)
@@ -57,6 +67,16 @@ export const SETTINGS = {
   },
 
   render: {
+    // How letters are picked:
+    //  'shape' = by the shape of the letter (sharp edges: / \ _ ( ' …), see src/ascii/shapeAscii.ts
+    //  'ramp'  = old way, only by brightness (letters from `ramp`)
+    letters: 'shape' as 'shape' | 'ramp',
+    shape: {
+      chars: LETTER_SETS.symbols, // letters 'shape' may use (LETTER_SETS above, or your own string)
+      sub: [6, 9] as P2, // hidden pixels per letter (x divisible by 2, y by 3); more = finer, slower
+      contrast: 1.8, // 1 = off; higher = sharper edges
+      minInk: 0.08, // less ink than this (0..1) -> empty cell
+    },
     ramp: ' .,:-=+*#%@', // letters from empty to full
     fontSize: 7,
     lineHeight: 1.15,

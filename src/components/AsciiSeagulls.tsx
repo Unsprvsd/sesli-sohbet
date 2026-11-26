@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { SETTINGS, SHAPE, SeagullFlock, drawGull, type Wave } from '../seagull'
+import { GullPainter, SETTINGS, SHAPE, SeagullFlock, type Wave } from '../seagull'
 import type { GullListener, GullMsg } from '../lobby'
 
 type Props = {
@@ -85,10 +85,8 @@ export default function AsciiSeagulls({ selfId, isLeader, sendGull, onGull, name
 
     const R = SETTINGS.render
     const font = getComputedStyle(document.body).fontFamily || 'monospace'
-    // hidden low-res canvas: 1 pixel = 1 letter cell
-    const off = document.createElement('canvas')
-    const octx = off.getContext('2d', { willReadFrequently: true })
-    if (!octx) return
+    // hidden canvas where the gulls are drawn in white, then turned into letters
+    const painter = new GullPainter()
     if (import.meta.env.DEV) (window as unknown as { __seagulls: SeagullFlock }).__seagulls = flock
 
     let cols = 0, rows = 0, cellW = 4, lineH = 8
@@ -104,8 +102,7 @@ export default function AsciiSeagulls({ selfId, isLeader, sendGull, onGull, name
       cellW = ctx.measureText('M').width || 4
       cols = Math.ceil(window.innerWidth / cellW)
       rows = Math.ceil(window.innerHeight / lineH)
-      off.width = cols
-      off.height = rows
+      painter.setup(font, R.fontSize, cellW, lineH, cols, rows)
     }
 
     // Click on a gull. The gull wins over whatever is under it (buttons, inputs…):
@@ -146,32 +143,21 @@ export default function AsciiSeagulls({ selfId, isLeader, sendGull, onGull, name
       const s = (cols * R.size) / SHAPE.width
       const rx = Math.ceil(s * 30) + 2 // half size of the area around a gull, in cells
       const ry = Math.ceil(s * 30 * ratio) + 2
-      octx.setTransform(1, 0, 0, 1, 0, 0)
-      octx.fillStyle = '#000'
-      octx.fillRect(0, 0, cols, rows)
-      for (const g of flock.gulls) {
-        octx.setTransform(1, 0, 0, 1, 0, 0)
-        octx.translate(g.x * cols, g.y * rows)
-        octx.scale(s, s * ratio)
-        drawGull(octx, g.pose, g.yaw, g.tilt)
-      }
-      ctx.fillStyle = R.color
-      for (const g of flock.gulls) {
-        // only turn the area around this gull into letters
+      // only the area around each gull is cleared, drawn and turned into letters
+      const boxes = flock.gulls.map((g) => {
         const x0 = Math.max(0, Math.floor(g.x * cols) - rx)
         const y0 = Math.max(0, Math.floor(g.y * rows) - ry)
         const x1 = Math.min(cols, Math.floor(g.x * cols) + rx)
         const y1 = Math.min(rows, Math.floor(g.y * rows) + ry)
-        const bw = x1 - x0, bh = y1 - y0
-        if (bw <= 0 || bh <= 0) continue
-        const d = octx.getImageData(x0, y0, bw, bh).data
-        for (let y = 0; y < bh; y++) {
-          let line = ''
-          for (let x = 0; x < bw; x++) {
-            line += ramp[Math.min(ramp.length - 1, Math.floor((d[(y * bw + x) * 4] / 255) * ramp.length))]
-          }
-          if (line.trim()) ctx.fillText(line, x0 * cellW, (y0 + y) * lineH)
-        }
+        return { x0, y0, w: x1 - x0, h: y1 - y0 }
+      }).filter((b) => b.w > 0 && b.h > 0)
+      for (const b of boxes) painter.clear(b.x0, b.y0, b.w, b.h)
+      for (const g of flock.gulls) painter.draw(g.pose, g.yaw, g.tilt, g.x * cols, g.y * rows, s, ratio)
+      ctx.fillStyle = R.color
+      for (const b of boxes) {
+        painter.lines(b.x0, b.y0, b.w, b.h).forEach((line, y) => {
+          if (line.trim()) ctx.fillText(line, b.x0 * cellW, (b.y0 + y) * lineH)
+        })
       }
     }
 
