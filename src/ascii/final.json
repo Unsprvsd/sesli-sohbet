@@ -3,7 +3,7 @@
   "glow": {},
   "seagull": {},
   "spider": {
-    "legLength": 0.13,
+    "legLength": 0.026,
     "thigh": 0.45,
     "reach": 0.7,
     "bodyHeight": 0.3,
@@ -12,9 +12,10 @@
       28,
       150
     ],
-    "bodySize": 0.018,
+    "bodySize": 0.0036,
     "headSize": 0.55,
-    "legWidth": 2.6,
+    "legWidth": 1.2,
+    "hitRadius": 1.1,
     "legInk": 0.75,
     "color": "#7a7a7a",
     "fontSize": 7,
