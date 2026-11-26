@@ -16,6 +16,8 @@ type Props = {
 }
 
 const rand = ([a, b]: [number, number]) => a + Math.random() * (b - a)
+/** ms to wait for the leader's "caught" answer before taking the point myself */
+const LEADER_TIMEOUT = 2000
 
 /**
  * The ASCII spider on the server screen: now and then it climbs along the layout
@@ -114,6 +116,15 @@ export default function AsciiSpider({ selfId, isLeader, sendGull, onGull, nameOf
         st.waves.push(w)
         st.mine.set(sp.id, w)
         L.sendGull({ t: 'sp-hit', id: sp.id, x, y })
+        // No answer from the leader (e.g. a friend on an older app version that
+        // doesn't know spiders, or the leader just left)? Then the point is mine.
+        const id = sp.id
+        window.setTimeout(() => {
+          if (stateRef.current.caught.has(id)) return
+          const me = live.current.selfId
+          live.current.sendGull({ t: 'sp-caught', id, uid: me, x, y })
+          applyCaught(id, me, x, y)
+        }, LEADER_TIMEOUT)
       }
     }
     const onClick = (e: MouseEvent) => {
