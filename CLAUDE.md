@@ -130,10 +130,14 @@ Discord/
   (6-part shape vectors, Alex Harri method), `GullPainter` in `src/seagull/engine.ts`,
   settings `render.letters` / `render.shape`; lab has Letters / Set / Contrast + compare.
   See vault/Decisions/020.
-- ASCII editor v1 (2026-11-26, local, dev only): http://localhost:5173/ascii-editor.html
-  (`ascii-editor.html`, `src/editor/doc.ts`, `src/editor/main.ts`). Paint view + live
-  shape-matched ASCII, tools, hand letters, frames, undo, image import, export
-  .txt / .ts / project .json, autosave. See vault/Decisions/021.
+- ASCII STUDIO (2026-11-26, local, dev only): http://localhost:5173/ascii-studio.html
+  WORKFLOW: user describes an animation in chat → Claude codes it as a scene →
+  user tunes knobs / compares A-B / presses "Final" → values saved to
+  `src/ascii/final.json` (wins over defaults in code) → app uses them.
+  User does NOT want drawing tools (paint editor was rejected and deleted).
+  New scene = `src/ascii/scenes/<name>.ts` (settings object + `applyFinal` + start fn)
+  + entry with knobs in `src/studio/scenes.ts` + `"<id>": {}` in final.json.
+  Save endpoint: dev-only plugin in `vite.config.ts`. See vault/Decisions/022.
 - Rule: test big changes on localhost BEFORE pushing — friends use the live site.
 - Speaking state is self-reported through lobby presence (no peer-id mapping
   between lobby and voice rooms needed).

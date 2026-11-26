@@ -3,8 +3,11 @@
 // Positions are 0..1 of the screen (x = width, y = height, 0 = top).
 
 import type { P2 } from './shape'
-// letter sets for render.shape.chars live in src/ascii/shapeAscii.ts (shared with the editor)
+// Final values chosen in the studio (ascii-studio.html) are saved in
+// src/ascii/final.json ("seagull") and WIN over the numbers below.
+// letter sets for render.shape.chars live in src/ascii/shapeAscii.ts
 import { LETTER_SETS } from '../ascii/shapeAscii'
+import { applyFinal } from '../ascii/tune'
 
 export { LETTER_SETS }
 export type ScreenSize = { w: number; h: number } // px
@@ -79,3 +82,4 @@ export const SETTINGS = {
     tilt: [0.15, 0.45] as P2, // camera a bit below
   },
 }
+applyFinal(SETTINGS, 'seagull')
