@@ -138,6 +138,10 @@ Discord/
   New scene = `src/ascii/scenes/<name>.ts` (settings object + `applyFinal` + start fn)
   + entry with knobs in `src/studio/scenes.ts` + `"<id>": {}` in final.json.
   Save endpoint: dev-only plugin in `vite.config.ts`. See vault/Decisions/022.
+  RULE: knob changes are only a preview. A value counts as the user's choice ONLY
+  after they press Final AND confirm the "are you sure?" popup (it lists old → new).
+  Claude never presses Final / writes final.json for the user, and never treats
+  unsaved studio values as decided.
 - Rule: test big changes on localhost BEFORE pushing — friends use the live site.
 - Speaking state is self-reported through lobby presence (no peer-id mapping
   between lobby and voice rooms needed).

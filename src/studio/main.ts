@@ -192,8 +192,57 @@ $('copyAB').onclick = () => {
 function status(t: string) {
   $('status').textContent = t
 }
+// "Are you sure?" popup: lists what changes (final → new). Nothing is saved
+// before the user presses "yes" — moving the knobs only changes this preview.
+function askConfirm(values: Values): Promise<boolean> {
+  const changes = scene.knobs.filter((k) => !same(values[k.key], saved[scene.id][k.key]))
+  const show = (k: Knob, v: unknown) => (k.kind === 'choice' ? labelOf(k, v) : fmt(v))
+  $('confirmTitle').textContent = `Save "${scene.name}" version ${slot} as Final?`
+  $('confirmText').textContent = changes.length
+    ? `${changes.length} setting(s) change. The app will use these values.`
+    : 'Nothing changed from the current final values.'
+  const list = $('confirmList')
+  list.innerHTML = ''
+  list.hidden = !changes.length
+  for (const k of changes) {
+    const row = document.createElement('div')
+    const name = document.createElement('span')
+    name.textContent = k.label
+    const val = document.createElement('span')
+    const old = document.createElement('span')
+    old.className = 'old'
+    old.textContent = show(k, saved[scene.id][k.key])
+    val.append(old, ` → ${show(k, values[k.key])}`)
+    row.append(name, val)
+    list.appendChild(row)
+  }
+  const box = $('confirm')
+  box.hidden = false
+  $('confirmNo').focus()
+  return new Promise((done) => {
+    const close = (ok: boolean) => {
+      box.hidden = true
+      removeEventListener('keydown', onKey)
+      done(ok)
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') close(false)
+    }
+    addEventListener('keydown', onKey)
+    $('confirmNo').onclick = () => close(false)
+    $('confirmYes').onclick = () => close(true)
+    box.onclick = (e) => {
+      if (e.target === box) close(false) // click outside the box = cancel
+    }
+  })
+}
+
 $('final').onclick = async () => {
   const values = snapshot(scene)
+  if (!(await askConfirm(values))) {
+    status('not saved')
+    return
+  }
   try {
     const res = await fetch('/__studio/final', {
       method: 'POST',
