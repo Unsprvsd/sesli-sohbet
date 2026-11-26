@@ -6,6 +6,7 @@ import type { Knob } from '../ascii/tune'
 import { LETTER_SETS } from '../ascii/shapeAscii'
 import { PLASMA, startPlasma } from '../ascii/scenes/plasma'
 import { GLOW, startGlow } from '../ascii/scenes/glow'
+import { SPIDER, startSpider } from '../ascii/scenes/spider'
 import { SETTINGS as GULL, SeagullFlock, GullScreen } from '../seagull'
 
 export type Mounted = { stop: () => void; actions?: Record<string, () => void> }
@@ -28,6 +29,42 @@ const pair = (key: string, label: string, min: number, max: number, step: number
 const color = (key: string, label: string, hint?: string): Knob => ({ key, label, kind: 'color', hint })
 
 export const SCENES: Scene[] = [
+  {
+    id: 'spider',
+    name: 'spider (new)',
+    where: 'not in the app yet — only here until you press Final and say where',
+    note: 'Long-legged spider walking around. Knees bend up high; feet stay planted and step in two groups. Try "follow mouse".',
+    settings: SPIDER,
+    knobs: [
+      n('legLength', 'leg length', 0.05, 0.5, 0.005, 'part of the screen height'),
+      n('thigh', 'thigh / shin', 0.2, 0.8, 0.01, 'part of the leg that is the upper part'),
+      n('reach', 'feet distance', 0.3, 0.95, 0.01, 'how far the feet stand from the body'),
+      n('bodyHeight', 'body height', 0, 0.8, 0.01, 'body above the floor (part of leg length)'),
+      n('tilt', '3D view', 0, 1.2, 0.01, '0 = straight from above'),
+      pair('legSpread', 'leg angles (front – back)', 0, 180, 1, 'degrees from forward'),
+      n('bodySize', 'body size', 0.004, 0.06, 0.001),
+      n('headSize', 'head size', 0, 1, 0.01, 'part of the body size'),
+      n('legWidth', 'leg thickness', 0.5, 6, 0.1),
+      n('legInk', 'leg ink', 0.1, 1, 0.01, 'low = thin letters - / \\ , high = # @'),
+      color('color', 'colour'),
+      n('fontSize', 'letter size', 5, 20, 1, 'smaller = finer legs'),
+      { key: 'letters', label: 'letter set', kind: 'choice', options: { symbols: LETTER_SETS.symbols, mixed: LETTER_SETS.mixed, all: LETTER_SETS.all } },
+      n('contrast', 'edge contrast', 1, 4, 0.1),
+      n('minInk', 'min ink', 0, 0.4, 0.01),
+      n('speed', 'walk speed', 0, 0.3, 0.005, 'screen widths per second'),
+      n('turn', 'turn speed', 0.2, 6, 0.1),
+      n('stepAt', 'step distance', 0.05, 0.8, 0.01, 'foot steps when this far from its place'),
+      n('stepTime', 'step time (s)', 0.05, 0.6, 0.01),
+      n('stepLift', 'step height', 0, 0.5, 0.01),
+      n('bob', 'body bob', 0, 0.2, 0.005),
+      pair('pause', 'stand still (s)', 0, 10, 0.1),
+      n('pauseChance', 'stand still chance', 0, 1, 0.05),
+      { key: 'followMouse', label: 'follow mouse', kind: 'bool' },
+    ],
+    mount(canvas) {
+      return { stop: startSpider(canvas) }
+    },
+  },
   {
     id: 'seagull',
     name: 'seagulls',
