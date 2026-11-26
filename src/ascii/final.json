@@ -1,7 +1,9 @@
 {
   "plasma": {},
   "glow": {},
-  "seagull": {},
+  "seagull": {
+    "render.letters": "ramp"
+  },
   "spider": {
     "legLength": 0.0325,
     "thigh": 0.45,
