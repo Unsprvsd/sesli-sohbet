@@ -15,6 +15,7 @@ import {
 import { useSameDeviceTabs } from '../sameDevice'
 import AsciiStream from './AsciiStream'
 import AsciiSeagulls from './AsciiSeagulls'
+import AsciiSpider from './AsciiSpider'
 import { keyLabel, useSetting } from '../settings'
 import {
   DEFAULT_SCREEN_QUALITY,
@@ -566,6 +567,14 @@ export default function Lobby({ name, serverName, srv, password, onLogout, onFai
         nameOf={nameOf}
         onCaught={onGullCaught}
       />
+      <AsciiSpider
+        selfId={selfId}
+        isLeader={!!selfId && gullLeader === selfId}
+        sendGull={sendGull}
+        onGull={onGull}
+        nameOf={nameOf}
+        onCaught={onGullCaught}
+      />
       <aside className="sidebar">
         <div className="server-name">
           <span>{config.name}</span>
@@ -837,7 +846,7 @@ export default function Lobby({ name, serverName, srv, password, onLogout, onFai
               {u.admin ? <Crown /> : <span className="dot online" />}
               <UserName user={u} hideYou />
               {typeof u.score === 'number' && Number.isFinite(u.score) && u.score > 0 && (
-                <span className="score" title="Seagulls caught">
+                <span className="score" title="Seagulls and spiders caught">
                   ~v~ {Math.min(99999, Math.floor(u.score))}
                 </span>
               )}

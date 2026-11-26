@@ -142,6 +142,10 @@ Discord/
   after they press Final AND confirm the "are you sure?" popup (it lists old → new).
   Claude never presses Final / writes final.json for the user, and never treats
   unsaved studio values as decided.
+- ASCII spider (2026-11-26, local): climbs the layout lines (.sidebar right edge,
+  .people left edge, .sidebar-foot top) now and then, same for everyone (lobby action
+  `gull`, types sp-spawn / sp-hit / sp-caught), click = +1 on the gull score.
+  `src/ascii/scenes/spider.ts`, `src/components/AsciiSpider.tsx`. vault/Decisions/023.
 - Rule: test big changes on localhost BEFORE pushing — friends use the live site.
 - Speaking state is self-reported through lobby presence (no peer-id mapping
   between lobby and voice rooms needed).

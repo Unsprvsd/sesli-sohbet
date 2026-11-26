@@ -1,9 +1,64 @@
 // Draws a SeagullFlock (gulls + catch waves) on a canvas sized by CSS.
 // Used by the server screen (AsciiSeagulls.tsx) and the studio (ascii-studio.html).
+// drawCatchWaves() is shared with the spider (same catch wave).
 
-import { GullPainter, type SeagullFlock } from './engine'
+import { GullPainter, type SeagullFlock, type Wave } from './engine'
 import { SHAPE } from './shape'
 import { SETTINGS } from './settings'
+
+/** Letter grid of a canvas (what drawCatchWaves needs). */
+export type Grid = { W: number; H: number; cols: number; rows: number; cellW: number; lineH: number; font: string; fontSize: number }
+
+/** Catch waves: rings of letters growing from the catch point, fading out, + the catcher's name. */
+export function drawCatchWaves(ctx: CanvasRenderingContext2D, waves: Wave[], g: Grid) {
+  const { W, H, cols, rows, cellW, lineH } = g
+  const WV = SETTINGS.catch.wave
+  const ramp = SETTINGS.render.ramp
+  ctx.font = `${g.fontSize}px ${g.font}`
+  ctx.fillStyle = WV.color
+  const maxR = WV.radius * W
+  for (const wave of waves) {
+    const cx = wave.x * W, cy = wave.y * H
+    const reach = maxR + WV.band * 2
+    const c0 = Math.max(0, Math.floor((cx - reach) / cellW)), c1 = Math.min(cols, Math.ceil((cx + reach) / cellW))
+    const r0 = Math.max(0, Math.floor((cy - reach) / lineH)), r1 = Math.min(rows, Math.ceil((cy + reach) / lineH))
+    const rings: { r: number; a: number }[] = []
+    for (let i = 0; i < WV.rings; i++) {
+      const t = (wave.age - i * WV.ringDelay) / (WV.duration - (WV.rings - 1) * WV.ringDelay)
+      if (t <= 0 || t >= 1) continue
+      rings.push({ r: maxR * (1 - (1 - t) * (1 - t)), a: (1 - t) * (i === 0 ? 1 : 0.7) })
+    }
+    if (rings.length) {
+      ctx.fillStyle = WV.color
+      for (let row = r0; row < r1; row++) {
+        let line = ''
+        const py = (row + 0.5) * lineH
+        for (let col = c0; col < c1; col++) {
+          const px = (col + 0.5) * cellW
+          const dist = Math.hypot(px - cx, py - cy)
+          let v = 0
+          for (const ring of rings) {
+            const k = (dist - ring.r) / WV.band
+            v = Math.max(v, Math.exp(-k * k) * ring.a)
+          }
+          line += ramp[Math.min(ramp.length - 1, Math.floor(v * ramp.length))]
+        }
+        if (line.trim()) ctx.fillText(line, c0 * cellW, row * lineH)
+      }
+    }
+    // catcher's name in the middle, fading out
+    if (wave.label) {
+      ctx.save()
+      ctx.globalAlpha = Math.max(0, 1 - wave.age / WV.duration)
+      ctx.fillStyle = '#e6e6e6'
+      ctx.font = `12px ${g.font}`
+      ctx.textAlign = 'center'
+      ctx.fillText(wave.label, cx, cy - 6 - wave.age * 10)
+      ctx.restore()
+      ctx.font = `${g.fontSize}px ${g.font}`
+    }
+  }
+}
 
 export class GullScreen {
   private ctx: CanvasRenderingContext2D
@@ -61,7 +116,8 @@ export class GullScreen {
     this.drawn = true
     ctx.clearRect(0, 0, this.W, this.H)
     if (!noGulls) this.drawGulls()
-    this.drawWaves()
+    const R = SETTINGS.render
+    drawCatchWaves(ctx, flock.waves, { ...this, font: this.font, fontSize: R.fontSize })
   }
 
   private drawGulls() {
@@ -86,57 +142,6 @@ export class GullScreen {
       painter.lines(b.x0, b.y0, b.w, b.h).forEach((line, y) => {
         if (line.trim()) ctx.fillText(line, b.x0 * cellW, (b.y0 + y) * lineH)
       })
-    }
-  }
-
-  // wave: rings of letters growing from the catch point, fading out
-  private drawWaves() {
-    const { ctx, flock, cols, rows, cellW, lineH, W, H } = this
-    const R = SETTINGS.render
-    const WV = SETTINGS.catch.wave
-    const ramp = R.ramp
-    ctx.fillStyle = WV.color
-    const maxR = WV.radius * W
-    for (const wave of flock.waves) {
-      const cx = wave.x * W, cy = wave.y * H
-      const reach = maxR + WV.band * 2
-      const c0 = Math.max(0, Math.floor((cx - reach) / cellW)), c1 = Math.min(cols, Math.ceil((cx + reach) / cellW))
-      const r0 = Math.max(0, Math.floor((cy - reach) / lineH)), r1 = Math.min(rows, Math.ceil((cy + reach) / lineH))
-      const rings: { r: number; a: number }[] = []
-      for (let i = 0; i < WV.rings; i++) {
-        const t = (wave.age - i * WV.ringDelay) / (WV.duration - (WV.rings - 1) * WV.ringDelay)
-        if (t <= 0 || t >= 1) continue
-        rings.push({ r: maxR * (1 - (1 - t) * (1 - t)), a: (1 - t) * (i === 0 ? 1 : 0.7) })
-      }
-      if (rings.length) {
-        for (let row = r0; row < r1; row++) {
-          let line = ''
-          const py = (row + 0.5) * lineH
-          for (let col = c0; col < c1; col++) {
-            const px = (col + 0.5) * cellW
-            const dist = Math.hypot(px - cx, py - cy)
-            let v = 0
-            for (const ring of rings) {
-              const k = (dist - ring.r) / WV.band
-              v = Math.max(v, Math.exp(-k * k) * ring.a)
-            }
-            line += ramp[Math.min(ramp.length - 1, Math.floor(v * ramp.length))]
-          }
-          if (line.trim()) ctx.fillText(line, c0 * cellW, row * lineH)
-        }
-      }
-      // catcher's name in the middle, fading out
-      if (wave.label) {
-        const a = Math.max(0, 1 - wave.age / WV.duration)
-        ctx.save()
-        ctx.globalAlpha = a
-        ctx.fillStyle = '#e6e6e6'
-        ctx.font = `12px ${this.font}`
-        ctx.textAlign = 'center'
-        ctx.fillText(wave.label, cx, cy - 6 - wave.age * 10)
-        ctx.restore()
-        ctx.font = `${R.fontSize}px ${this.font}`
-      }
     }
   }
 }

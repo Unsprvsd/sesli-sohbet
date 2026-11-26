@@ -31,11 +31,19 @@ const color = (key: string, label: string, hint?: string): Knob => ({ key, label
 export const SCENES: Scene[] = [
   {
     id: 'spider',
-    name: 'spider (new)',
-    where: 'not in the app yet — only here until you press Final and say where',
-    note: 'Long-legged spider walking around. Knees bend up high; feet stay planted and step in two groups. Try "follow mouse".',
+    name: 'spider',
+    where: 'server screen: now and then climbs the layout lines; click = catch (+1, gull score)',
+    note: 'The grey lines here stand for the app layout (sidebar | middle | online list + sidebar footer). Mode "floor" = the old walking version. Click the spider to catch it.',
     settings: SPIDER,
     knobs: [
+      { key: 'mode', label: 'mode', kind: 'choice', options: { 'climb lines (app)': 'lines', 'floor (studio only)': 'floor' } },
+      n('lineSpeed', 'climb speed', 0.005, 0.3, 0.005, 'screen heights per second'),
+      n('grip', 'feet beside the line', 0, 0.6, 0.01, '0 = feet exactly on the line'),
+      pair('stops', 'stops on the way', 0, 6, 1),
+      n('cornerChance', 'turn at the corner', 0, 1, 0.05, 'chance to walk onto the sidebar footer line'),
+      pair('firstSpawn', 'first spider after (s)', 5, 600, 5, 'app only'),
+      pair('spawnEvery', 'time between spiders (s)', 10, 1200, 5, 'app only'),
+      n('hitRadius', 'hit size', 0.1, 1.5, 0.05, 'part of the leg length around the body'),
       n('legLength', 'leg length', 0.05, 0.5, 0.005, 'part of the screen height'),
       n('thigh', 'thigh / shin', 0.2, 0.8, 0.01, 'part of the leg that is the upper part'),
       n('reach', 'feet distance', 0.3, 0.95, 0.01, 'how far the feet stand from the body'),
@@ -61,8 +69,15 @@ export const SCENES: Scene[] = [
       n('pauseChance', 'stand still chance', 0, 1, 0.05),
       { key: 'followMouse', label: 'follow mouse', kind: 'bool' },
     ],
-    mount(canvas) {
-      return { stop: startSpider(canvas) }
+    mount(canvas, stage) {
+      // mock layout with the same class names as the app (the spider reads its lines)
+      const mock = document.createElement('div')
+      mock.className = 'mock-layout'
+      mock.innerHTML =
+        '<div class="sidebar"><div class="sidebar-foot"></div></div><div class="people"></div>'
+      stage.appendChild(mock)
+      const run = startSpider(canvas, { linesRoot: mock })
+      return { stop: () => { run.stop(); mock.remove() }, actions: { 'new spider': run.newSpider } }
     },
   },
   {

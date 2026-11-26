@@ -29,11 +29,13 @@ export type Presence = {
  * spawn  - the leader sends a new gull (everyone simulates it from the seed)
  * hit    - someone clicked the gull (sent to everyone; the leader decides)
  * caught - the leader's decision: who caught it, and where
+ * sp-spawn / sp-hit / sp-caught - the same for the ASCII spider (older app
+ * versions don't know these and simply ignore them)
  */
 export type GullMsg =
-  | { t: 'spawn'; id: string; seed: number }
-  | { t: 'hit'; id: string; x: number; y: number }
-  | { t: 'caught'; id: string; uid: string; x: number; y: number }
+  | { t: 'spawn' | 'sp-spawn'; id: string; seed: number }
+  | { t: 'hit' | 'sp-hit'; id: string; x: number; y: number }
+  | { t: 'caught' | 'sp-caught'; id: string; uid: string; x: number; y: number }
 
 export type GullListener = (msg: GullMsg, fromUserId: string) => void
 
@@ -42,9 +44,9 @@ function isGullMsg(m: unknown): m is GullMsg {
   const x = m as Record<string, unknown>
   if (typeof x.id !== 'string' || x.id.length > 16) return false
   const num = (v: unknown) => typeof v === 'number' && Number.isFinite(v)
-  if (x.t === 'spawn') return num(x.seed)
-  if (x.t === 'hit') return num(x.x) && num(x.y)
-  if (x.t === 'caught') return typeof x.uid === 'string' && x.uid.length <= 128 && num(x.x) && num(x.y)
+  if (x.t === 'spawn' || x.t === 'sp-spawn') return num(x.seed)
+  if (x.t === 'hit' || x.t === 'sp-hit') return num(x.x) && num(x.y)
+  if (x.t === 'caught' || x.t === 'sp-caught') return typeof x.uid === 'string' && x.uid.length <= 128 && num(x.x) && num(x.y)
   return false
 }
 

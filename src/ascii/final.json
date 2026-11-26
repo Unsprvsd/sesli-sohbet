@@ -2,5 +2,36 @@
   "plasma": {},
   "glow": {},
   "seagull": {},
-  "spider": {}
+  "spider": {
+    "legLength": 0.13,
+    "thigh": 0.45,
+    "reach": 0.7,
+    "bodyHeight": 0.3,
+    "tilt": 0.55,
+    "legSpread": [
+      28,
+      150
+    ],
+    "bodySize": 0.018,
+    "headSize": 0.55,
+    "legWidth": 2.6,
+    "legInk": 0.75,
+    "color": "#7a7a7a",
+    "fontSize": 7,
+    "letters": " .,:;'\"`^-_~=+*<>/\\|()[]{}!?#%@&$",
+    "contrast": 1.8,
+    "minInk": 0.06,
+    "speed": 0.05,
+    "turn": 1.8,
+    "stepAt": 0.32,
+    "stepTime": 0.16,
+    "stepLift": 0.18,
+    "bob": 0.04,
+    "pause": [
+      0.5,
+      2.5
+    ],
+    "pauseChance": 0.35,
+    "followMouse": false
+  }
 }

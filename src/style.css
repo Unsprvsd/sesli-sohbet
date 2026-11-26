@@ -461,7 +461,8 @@ pre.logo {
 
 /* faint ASCII background effects behind the server screen (glow lines, seagulls) */
 .ascii-stream,
-.ascii-gulls {
+.ascii-gulls,
+.ascii-spider {
   position: fixed;
   inset: 0;
   width: 100%;

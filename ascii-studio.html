@@ -27,6 +27,11 @@
   #stage { position: absolute; left: 0; top: 0; transform-origin: 0 0; background: #000;
     font-family: 'JetBrains Mono', Consolas, monospace; }
   #stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  /* mock of the app layout lines (spider climbs them) */
+  .mock-layout { position: absolute; inset: 0; pointer-events: none; }
+  .mock-layout .sidebar { position: absolute; left: 0; top: 0; bottom: 0; width: 240px; border-right: 1px solid #262626; }
+  .mock-layout .sidebar-foot { position: absolute; left: 0; right: 0; bottom: 0; height: 92px; border-top: 1px solid #262626; }
+  .mock-layout .people { position: absolute; right: 0; top: 0; bottom: 0; width: 210px; border-left: 1px solid #262626; }
   .mock-form { position: absolute; left: 50%; top: 50%; width: 340px; height: 380px; transform: translate(-50%, -50%);
     border: 1px dashed #333; color: #444; display: flex; align-items: center; justify-content: center; pointer-events: none; }
   #note { color: var(--muted); padding: 6px 12px; border-top: 1px solid var(--line); }
