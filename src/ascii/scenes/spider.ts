@@ -53,7 +53,7 @@ export const SPIDER = {
   pauseChance: 0.35, // floor: chance to stand still at each new target
   stops: [1, 3] as P2, // lines: how many pauses on the way
   footChance: 0.4, // lines: chance to use the sidebar footer line (start on it / go down to it)
-  edgeInset: 0.35, // lines: walk this far inside the top / bottom screen edge (part of leg length)
+  edgeInset: 0.8, // lines: walk this far inside the top / bottom screen edge (part of leg length)
   followMouse: false, // floor: walk towards the mouse instead of wandering
   margin: 0.12, // floor: stay this far from the screen edge
   // ---- game (app) ----
@@ -139,6 +139,10 @@ export class Spider {
   private lastGroup: 0 | 1 = 1
   private placed = false
   done = false // left the screen
+  /** 0 = walking pose (horizontal path, knees up), 1 = climbing pose (vertical line, knees out) */
+  climb = 0
+  /** +1 = knees point up the screen, -1 = down (walking along the top edge, like on a ceiling) */
+  private upSign = 1
   // lines mode: plan (from the seed) + progress along this user's path
   private plan: Plan
   private path: P2[] = []
@@ -223,22 +227,26 @@ export class Spider {
     return [(b[0] - a[0]) / len, (b[1] - a[1]) / len]
   }
 
-  private restFoot(leg: Leg, H: number, onLine: boolean): P2 {
+  /**
+   * Rest place of a foot: the walking pose (feet around the body) mixed with the
+   * climbing pose (feet along the vertical line, a bit beside it) by `climb`.
+   */
+  private restFoot(leg: Leg, H: number): P2 {
     const S = SPIDER
     const R = S.reach * this.L(H)
-    if (onLine) {
-      // feet along the line (front legs ahead, back legs behind), a bit beside it
-      const [dx, dy] = this.segDir()
-      const nx = -dy, ny = dx
-      const along = Math.cos(leg.angle) * R
-      const beside = Math.sin(leg.angle) * S.grip * this.L(H) * leg.side
-      return [this.x + dx * along + nx * beside, this.y + dy * along + ny * beside]
-    }
     const a = this.heading + leg.side * leg.angle
-    return [this.x + Math.cos(a) * R, this.y + Math.sin(a) * R]
+    const walk: P2 = [this.x + Math.cos(a) * R, this.y + Math.sin(a) * R]
+    const k = this.climb
+    if (k <= 0.001) return walk
+    const [dx, dy] = this.segDir()
+    const nx = -dy, ny = dx
+    const along = Math.cos(leg.angle) * R
+    const beside = Math.sin(leg.angle) * S.grip * this.L(H) * leg.side
+    const grip: P2 = [this.x + dx * along + nx * beside, this.y + dy * along + ny * beside]
+    return [lerp(walk[0], grip[0], k), lerp(walk[1], grip[1], k)]
   }
 
-  private makeLegs(H: number, onLine: boolean) {
+  private makeLegs(H: number) {
     const [a0, a1] = SPIDER.legSpread
     this.legs = []
     for (let i = 0; i < 4; i++) {
@@ -246,13 +254,13 @@ export class Spider {
       for (const side of [-1, 1] as const) {
         const group = ((i + (side > 0 ? 1 : 0)) % 2) as 0 | 1
         const leg: Leg = { side, angle, group, foot: [0, 0], from: [0, 0], to: [0, 0], t: -1 }
-        leg.foot = this.restFoot(leg, H, onLine)
+        leg.foot = this.restFoot(leg, H)
         this.legs.push(leg)
       }
     }
   }
 
-  private stepLegs(dt: number, H: number, onLine: boolean, speedPx: number) {
+  private stepLegs(dt: number, H: number, speedPx: number) {
     const S = SPIDER
     const stepping = this.legs.some((l) => l.t >= 0)
     for (const leg of this.legs) {
@@ -269,7 +277,7 @@ export class Spider {
     if (stepping) return
     const limit = S.stepAt * this.L(H)
     const far = (l: Leg) => {
-      const r = this.restFoot(l, H, onLine)
+      const r = this.restFoot(l, H)
       return Math.hypot(l.foot[0] - r[0], l.foot[1] - r[1])
     }
     // the group that waited longest goes first, if any of its feet is too far
@@ -278,7 +286,7 @@ export class Spider {
       if (!group.some((l) => far(l) > limit)) continue
       const ahead = speedPx * S.stepTime * 0.8 // land where the body will be
       for (const l of group) {
-        const r = this.restFoot(l, H, onLine)
+        const r = this.restFoot(l, H)
         l.from = l.foot
         l.to = [r[0] + Math.cos(this.heading) * ahead, r[1] + Math.sin(this.heading) * ahead]
         l.t = 0
@@ -304,11 +312,15 @@ export class Spider {
       const a = this.path[this.seg], b = this.path[this.seg + 1]
       return [lerp(a[0], b[0], this.f), lerp(a[1], b[1], this.f)] as P2
     }
+    // climbing only on vertical lines; on horizontal paths it walks normally
+    const vertical = () => Math.abs(this.segDir()[1]) > 0.7
     if (!this.placed) {
       ;[this.x, this.y] = pos()
       const [dx, dy] = this.segDir()
       this.heading = Math.atan2(dy, dx)
-      this.makeLegs(H, true)
+      this.climb = vertical() ? 1 : 0
+      this.upSign = this.y < H / 2 ? -1 : 1
+      this.makeLegs(H)
       this.placed = true
     }
     let speedPx = 0
@@ -346,7 +358,10 @@ export class Spider {
     // turn smoothly towards the walking direction (corners)
     const [dx, dy] = this.segDir()
     this.heading += wrapAngle(Math.atan2(dy, dx) - this.heading) * Math.min(1, dt * 8)
-    this.stepLegs(dt, H, true, speedPx)
+    // pose: soft change at the corners (~0.2 s)
+    this.climb += ((vertical() ? 1 : 0) - this.climb) * Math.min(1, dt * 6)
+    if (!vertical()) this.upSign = this.y < H / 2 ? -1 : 1 // top edge: knees hang down
+    this.stepLegs(dt, H, speedPx)
   }
 
   /** floor mode (studio): wander or follow the mouse. */
@@ -357,7 +372,7 @@ export class Spider {
       this.y = H / 2
       this.heading = this.r(-Math.PI, Math.PI)
       this.pick(W, H)
-      this.makeLegs(H, false)
+      this.makeLegs(H)
       this.placed = true
     }
     const L = this.L(H)
@@ -383,7 +398,7 @@ export class Spider {
       this.x += Math.cos(this.heading) * v * dt
       this.y += Math.sin(this.heading) * v * dt
     }
-    this.stepLegs(dt, H, false, v)
+    this.stepLegs(dt, H, v)
   }
 
   private pick(W: number, H: number) {
@@ -397,13 +412,14 @@ export class Spider {
     const S = SPIDER
     const len = this.L(H)
     const a = len * S.thigh, b = len * (1 - S.thigh)
-    const floor = S.mode === 'floor'
+    const k = this.climb // 0 = walking pose, 1 = climbing pose (mixed at corners)
     const stepping = this.legs.some((l) => l.t >= 0)
     const bob = stepping ? S.bob * Math.sin(Math.PI * Math.max(0, ...this.legs.map((l) => l.t))) : 0
-    const bz = floor ? len * (S.bodyHeight + bob) : 0
-    const tilt = floor ? S.tilt : 0
+    const bz = len * (S.bodyHeight + bob) // walking: body above the path
+    const tilt = S.tilt * this.upSign
     const br = S.bodySize * H
     const scr = (x: number, y: number, z: number): P2 => [x, y - z * tilt]
+    const mix = (p: P2, q: P2): P2 => [lerp(p[0], q[0], k), lerp(p[1], q[1], k)]
 
     const ink = Math.round(Math.max(0, Math.min(1, S.legInk)) * 255)
     h.strokeStyle = `rgb(${ink},${ink},${ink})`
@@ -412,37 +428,41 @@ export class Spider {
     h.lineJoin = 'round'
     for (const leg of this.legs) {
       const ha = this.heading + leg.side * leg.angle
-      const hip: [number, number, number] = [this.x + Math.cos(ha) * br * 0.8, this.y + Math.sin(ha) * br * 0.8, bz]
+      const hx = this.x + Math.cos(ha) * br * 0.8, hy = this.y + Math.sin(ha) * br * 0.8
       const lift = leg.t >= 0 ? Math.sin(Math.PI * leg.t) * S.stepLift * len : 0
-      let knee: [number, number, number]
-      let foot: [number, number, number]
-      if (floor) {
-        // 3D: knee bends UP in the plane through hip, foot and "up"
-        foot = [leg.foot[0], leg.foot[1], lift]
-        const dx = foot[0] - hip[0], dy = foot[1] - hip[1], dz = foot[2] - hip[2]
-        const d = Math.min(Math.hypot(dx, dy, dz), (a + b) * 0.999)
-        const ux = dx / (d || 1), uy = dy / (d || 1), uz = dz / (d || 1)
-        const along = (a * a - b * b + d * d) / (2 * d || 1)
-        const up = Math.sqrt(Math.max(0, a * a - along * along))
-        let px = -uz * ux, py = -uz * uy, pz = 1 - uz * uz
-        const pl = Math.hypot(px, py, pz) || 1
-        px /= pl; py /= pl; pz /= pl
-        knee = [hip[0] + ux * along + px * up, hip[1] + uy * along + py * up, hip[2] + uz * along + pz * up]
-      } else {
-        // on a line: flat 2D, the knee bows OUT to the leg's side; a lifted foot
-        // moves a little outwards too
-        const ox = -Math.sin(this.heading) * leg.side, oy = Math.cos(this.heading) * leg.side
-        foot = [leg.foot[0] + ox * lift, leg.foot[1] + oy * lift, 0]
-        const dx = foot[0] - hip[0], dy = foot[1] - hip[1]
-        const d = Math.min(Math.hypot(dx, dy), (a + b) * 0.999)
-        const ux = dx / (d || 1), uy = dy / (d || 1)
-        const along = (a * a - b * b + d * d) / (2 * d || 1)
-        const up = Math.sqrt(Math.max(0, a * a - along * along))
-        let px = -uy, py = ux
-        if (px * ox + py * oy < 0) { px = -px; py = -py }
-        knee = [hip[0] + ux * along + px * up, hip[1] + uy * along + py * up, 0]
-      }
-      const P0 = scr(...hip), K = scr(...knee), F = scr(...foot)
+
+      // walking pose (3D): the knee bends UP in the plane through hip, foot and "up"
+      const hipW: [number, number, number] = [hx, hy, bz]
+      const footW: [number, number, number] = [leg.foot[0], leg.foot[1], lift]
+      let dx = footW[0] - hipW[0], dy = footW[1] - hipW[1]
+      const dz = footW[2] - hipW[2]
+      let d = Math.min(Math.hypot(dx, dy, dz), (a + b) * 0.999)
+      let ux = dx / (d || 1), uy = dy / (d || 1)
+      const uz = dz / (d || 1)
+      let along = (a * a - b * b + d * d) / (2 * d || 1)
+      let up = Math.sqrt(Math.max(0, a * a - along * along))
+      let px = -uz * ux, py = -uz * uy
+      const pz0 = 1 - uz * uz
+      const pl = Math.hypot(px, py, pz0) || 1
+      px /= pl; py /= pl
+      const kneeW: [number, number, number] = [hipW[0] + ux * along + px * up, hipW[1] + uy * along + py * up, hipW[2] + uz * along + (pz0 / pl) * up]
+
+      // climbing pose (flat 2D): the knee bows OUT to the leg's side; a lifted foot
+      // moves a little outwards too
+      const ox = -Math.sin(this.heading) * leg.side, oy = Math.cos(this.heading) * leg.side
+      const footC: P2 = [leg.foot[0] + ox * lift, leg.foot[1] + oy * lift]
+      dx = footC[0] - hx
+      dy = footC[1] - hy
+      d = Math.min(Math.hypot(dx, dy), (a + b) * 0.999)
+      ux = dx / (d || 1)
+      uy = dy / (d || 1)
+      along = (a * a - b * b + d * d) / (2 * d || 1)
+      up = Math.sqrt(Math.max(0, a * a - along * along))
+      let qx = -uy, qy = ux
+      if (qx * ox + qy * oy < 0) { qx = -qx; qy = -qy }
+      const kneeC: P2 = [hx + ux * along + qx * up, hy + uy * along + qy * up]
+
+      const P0 = mix(scr(...hipW), [hx, hy]), K = mix(scr(...kneeW), kneeC), F = mix(scr(...footW), footC)
       h.beginPath()
       h.moveTo(P0[0], P0[1])
       h.lineTo(K[0], K[1])
@@ -450,7 +470,7 @@ export class Spider {
       h.stroke()
     }
     // body + head (full white = dense letters)
-    const [bx, by] = scr(this.x, this.y, bz)
+    const [bx, by] = mix(scr(this.x, this.y, bz), [this.x, this.y])
     h.fillStyle = '#fff'
     h.beginPath()
     h.ellipse(bx, by, br, br * 0.8, this.heading, 0, Math.PI * 2)
@@ -464,8 +484,8 @@ export class Spider {
   /** screen box around the spider (px), for drawing and hit tests */
   box(H: number) {
     const pad = this.L(H) * 1.1 + SPIDER.bodySize * H * 2
-    const up = SPIDER.mode === 'floor' ? this.L(H) * SPIDER.tilt : 0
-    return { x0: this.x - pad, y0: this.y - pad - up, x1: this.x + pad, y1: this.y + pad }
+    const up = this.L(H) * SPIDER.tilt * (1 - this.climb) // walking: knees above / below
+    return { x0: this.x - pad, y0: this.y - pad - up, x1: this.x + pad, y1: this.y + pad + up }
   }
 }
 
@@ -569,6 +589,7 @@ type StudioOptions = {
 /** Runs spiders on a canvas for the studio. Returns stop() + actions. */
 export function startSpider(canvas: HTMLCanvasElement, opt: StudioOptions = {}) {
   const layer = new SpiderLayer(canvas)
+  if (import.meta.env.DEV) (window as unknown as { __studioSpiders: SpiderLayer }).__studioSpiders = layer
   const mouse = { x: -1, y: -1, on: false }
   let wait = 0.3, raf = 0, last = performance.now(), n = 0
   const spawn = () => {
