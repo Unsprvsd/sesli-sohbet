@@ -52,8 +52,8 @@ export const SPIDER = {
   pause: [0.5, 2.5] as P2, // seconds it stands still at a stop
   pauseChance: 0.35, // floor: chance to stand still at each new target
   stops: [1, 3] as P2, // lines: how many pauses on the way
-  footChance: 0.4, // lines: chance to use the sidebar footer line (start on it / go down to it)
-  edgeInset: 0.8, // lines: walk this far inside the top / bottom screen edge (part of leg length)
+  floorPoints: [1, 2] as P2, // lines: free walking points in each area between the lines
+  climbLength: [0.2, 0.5] as P2, // lines: how far it climbs / goes down a line (part of the height)
   followMouse: false, // floor: walk towards the mouse instead of wandering
   margin: 0.12, // floor: stay this far from the screen edge
   // ---- game (app) ----
@@ -100,18 +100,27 @@ export function layoutLines(root: ParentNode, canvas: HTMLCanvasElement): Lines 
   }
   return lines
 }
-
 // ============================ route ==============================
-// Like the gull: the route is planned once from the seed (same for everyone):
-// enter at one side on a horizontal "rail" (bottom edge, top edge or the sidebar
-// footer line) -> walk to the next vertical line -> LOW (bottom / footer)? climb up
-// to the top; HIGH (top)? go down to the bottom (or, going left on the sidebar line,
-// down to the footer line) -> walk on to the next vertical line -> ... -> leave
-// the screen on the other side. Each user turns the plan into points on their own
-// layout, so the spider follows their lines.
+// Like the gull: the route is planned once from the seed (same for everyone).
+// It MIXES free walking and climbing:
+//   enter at one side -> walk freely over the screen (1–2 points) -> reach the next
+//   vertical layout line -> climb a part of it (LOW? climb up; HIGH? go down) ->
+//   leave the line and walk freely again (between the lines) -> next line -> ...
+//   -> leave the screen on the other side.
+// Free walking = normal walking pose; on a line = climbing pose.
+// Each user turns the plan into points on their own layout (their own lines).
 
-type Rail = 'top' | 'bottom' | 'foot'
-type Plan = { dir: 1 | -1; start: Rail; turns: { line: LineId; to: Rail }[]; pauses: { at: number; time: number }[] }
+type Plan = {
+  dir: 1 | -1
+  startY: number // 0..1 of the screen height
+  endY: number
+  /** per area between the lines (3 areas): free walking points (x = 0..1 of the area) */
+  areas: P2[][]
+  /** per vertical line in walking order: where it gets on and off (0..1 of the height) */
+  climbs: { line: LineId; inY: number; outY: number }[]
+  pauses: { at: number; time: number }[]
+}
+type SegKind = 'floor' | 'line'
 
 // ============================ one spider ==============================
 
@@ -146,6 +155,7 @@ export class Spider {
   // lines mode: plan (from the seed) + progress along this user's path
   private plan: Plan
   private path: P2[] = []
+  private kinds: SegKind[] = [] // 'floor' (free walking) or 'line' (climbing), per segment
   private pathKey = ''
   private seg = 0 // current segment of the path
   private f = 0 // 0..1 along it
@@ -169,49 +179,62 @@ export class Spider {
   private makePlan(): Plan {
     const S = SPIDER
     const dir: 1 | -1 = this.rnd() < 0.5 ? 1 : -1
-    // entering from the left, it may start on the sidebar footer line
-    const x = this.rnd()
-    const start: Rail = dir > 0 && x < S.footChance * 0.5 ? 'foot' : x < 0.5 + S.footChance * 0.25 ? 'bottom' : 'top'
-    const order: LineId[] = dir > 0 ? ['side-r', 'people-l'] : ['people-l', 'side-r']
-    const turns: Plan['turns'] = []
-    let rail = start
-    for (const line of order) {
-      // low -> climb up, high -> go down
-      let to: Rail = rail === 'top' ? 'bottom' : 'top'
-      if (to === 'bottom' && line === 'side-r' && dir < 0 && this.rnd() < S.footChance) to = 'foot'
-      turns.push({ line, to })
-      rail = to
+    const y = () => this.r(0.15, 0.85)
+    const startY = y()
+    const areas: P2[][] = []
+    for (let i = 0; i < 3; i++) {
+      const n = Math.round(this.r(S.floorPoints[0], S.floorPoints[1]))
+      // points go forward through the area (sorted), at random heights
+      const xs = Array.from({ length: n }, () => this.r(0.2, 0.8)).sort((a, b) => a - b)
+      areas.push(xs.map((x) => [x, y()] as P2))
     }
+    const order: LineId[] = dir > 0 ? ['side-r', 'people-l'] : ['people-l', 'side-r']
+    const climbs = order.map((line) => {
+      const inY = y()
+      const len = this.r(S.climbLength[0], S.climbLength[1])
+      // low -> climb up, high -> go down
+      const outY = Math.min(0.9, Math.max(0.1, inY > 0.5 ? inY - len : inY + len))
+      return { line, inY, outY }
+    })
+    const endY = y()
     // pauses at random places along the whole route (0..1 of its segments)
     const n = Math.round(this.r(S.stops[0], S.stops[1]))
     const pauses = Array.from({ length: n }, () => ({ at: this.r(0.08, 0.92), time: this.r(S.pause[0], S.pause[1]) }))
       .sort((a, b) => a.at - b.at)
-    return { dir, start, turns, pauses }
+    return { dir, startY, endY, areas, climbs, pauses }
   }
 
-  /** the plan as points on this user's layout */
-  private buildPath(W: number, H: number, lines: Lines): P2[] {
-    const inset = SPIDER.edgeInset * this.L(H)
-    const railY = (r: Rail) => {
-      if (r === 'top') return inset
-      if (r === 'foot' && lines['foot-t']) return lines['foot-t'].y1
-      return H - inset
-    }
+  /** the plan as points on this user's layout (+ the kind of every segment) */
+  private buildPath(W: number, H: number, lines: Lines): { pts: P2[]; kinds: SegKind[] } {
+    const { dir, areas, climbs } = this.plan
     const out = this.L(H) * 1.5 + 4 // start / end outside the screen
-    const { dir } = this.plan
-    let rail = this.plan.start
-    if (rail === 'foot' && !lines['foot-t']) rail = 'bottom'
-    const pts: P2[] = [[dir > 0 ? -out : W + out, railY(rail)]]
-    for (const t of this.plan.turns) {
-      const l = lines[t.line]
-      if (!l) continue // this user has no such line (phone): keep walking
-      let to = t.to
-      if (to === 'foot' && !lines['foot-t']) to = 'bottom'
-      pts.push([l.x1, railY(rail)], [l.x1, railY(to)])
-      rail = to
+    const startX = dir > 0 ? -out : W + out, endX = dir > 0 ? W + out : -out
+    const present = climbs.filter((c) => lines[c.line])
+    const pts: P2[] = [[startX, this.plan.startY * H]]
+    const kinds: SegKind[] = []
+    const add = (p: P2, kind: SegKind) => {
+      pts.push(p)
+      kinds.push(kind)
     }
-    pts.push([dir > 0 ? W + out : -out, railY(rail)])
-    return pts
+    if (present.length === climbs.length) {
+      // area edges in walking order: screen side, line, line, other side
+      const xs = [dir > 0 ? 0 : W, ...climbs.map((c) => lines[c.line]!.x1), dir > 0 ? W : 0]
+      areas.forEach((area, i) => {
+        for (const [fx, fy] of area) add([lerp(xs[i], xs[i + 1], fx), fy * H], 'floor')
+        const c = climbs[i]
+        if (c) {
+          const x = xs[i + 1]
+          add([x, c.inY * H], 'floor') // walk to the line
+          add([x, c.outY * H], 'line') // climb along it
+        }
+      })
+    } else {
+      // no columns (phone): only free walking across the screen
+      const all = areas.flatMap((area, i) => area.map(([fx, fy]) => [(i + fx) / 3, fy] as P2))
+      for (const [fx, fy] of all) add([lerp(dir > 0 ? 0 : W, dir > 0 ? W : 0, fx), fy * H], 'floor')
+    }
+    add([endX, this.plan.endY * H], 'floor')
+    return { pts, kinds }
   }
 
   // ---------- legs ----------
@@ -303,7 +326,9 @@ export class Spider {
     // (re)build the path when the layout changes; progress (segment + f) is kept
     const key = [W, H, ...Object.values(lines).map((l) => `${l!.x1 | 0},${l!.y1 | 0}`)].join('|')
     if (key !== this.pathKey) {
-      this.path = this.buildPath(W, H, lines)
+      const built = this.buildPath(W, H, lines)
+      this.path = built.pts
+      this.kinds = built.kinds
       this.pathKey = key
       this.seg = Math.min(this.seg, this.path.length - 2)
     }
@@ -313,13 +338,13 @@ export class Spider {
       return [lerp(a[0], b[0], this.f), lerp(a[1], b[1], this.f)] as P2
     }
     // climbing only on vertical lines; on horizontal paths it walks normally
-    const vertical = () => Math.abs(this.segDir()[1]) > 0.7
+    const vertical = () => this.kinds[this.seg] === 'line'
     if (!this.placed) {
       ;[this.x, this.y] = pos()
       const [dx, dy] = this.segDir()
       this.heading = Math.atan2(dy, dx)
       this.climb = vertical() ? 1 : 0
-      this.upSign = this.y < H / 2 ? -1 : 1
+      this.upSign = 1
       this.makeLegs(H)
       this.placed = true
     }
@@ -360,7 +385,8 @@ export class Spider {
     this.heading += wrapAngle(Math.atan2(dy, dx) - this.heading) * Math.min(1, dt * 8)
     // pose: soft change at the corners (~0.2 s)
     this.climb += ((vertical() ? 1 : 0) - this.climb) * Math.min(1, dt * 6)
-    if (!vertical()) this.upSign = this.y < H / 2 ? -1 : 1 // top edge: knees hang down
+    // near the top edge the knees hang down (like on a ceiling), else they point up
+    if (!vertical()) this.upSign = this.y < this.L(H) * 1.5 ? -1 : 1
     this.stepLegs(dt, H, speedPx)
   }
 
