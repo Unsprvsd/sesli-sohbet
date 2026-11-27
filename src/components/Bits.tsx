@@ -46,11 +46,19 @@ export function Meter({ on }: { on: boolean }) {
   )
 }
 
-/** Three seagulls (shop: seagull flock). White lines, take the text colour. */
+/** One bird silhouette, head on the left, wing up, tail on the right (about 18 x 8.5). */
+const BIRD = 'M0 5L2 3.6C3.5 3 5 3.4 6 4L12 0L9.5 5C12 5 15 4.8 18 3.5L16 6.5C12 8 6 8.5 3 7Z'
+
+/** Shop: seagull flock. A circle with three filled birds (from the user's sketch). */
 export function Birds() {
   return (
-    <svg className="birds" viewBox="0 0 28 14" aria-hidden="true">
-      <path d="M1 9q2.5-3.5 5 0q2.5-3.5 5 0M12 5q2-2.8 4 0q2-2.8 4 0M19.8 10q1.6-2.2 3.2 0q1.6-2.2 3.2 0" />
+    <svg className="birds" viewBox="0 0 40 40" aria-hidden="true">
+      <circle cx="20" cy="20" r="18.5" className="birds-ring" />
+      <g transform="translate(20 20) scale(0.88) translate(-20 -20)">
+        <path d={BIRD} transform="translate(7 11)" />
+        <path d={BIRD} transform="translate(22 20) rotate(-30) scale(0.82)" />
+        <path d={BIRD} transform="translate(9 29) rotate(-25) scale(0.8)" />
+      </g>
     </svg>
   )
 }
