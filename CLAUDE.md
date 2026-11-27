@@ -146,7 +146,7 @@ Discord/
   .people left edge, .sidebar-foot top) now and then, same for everyone (lobby action
   `gull`, types sp-spawn / sp-hit / sp-caught), click = +1 on the gull score.
   `src/ascii/scenes/spider.ts`, `src/components/AsciiSpider.tsx`. vault/Decisions/023.
-- ASCII butterfly (2026-11-27, LIVE; size 0.032, #585858, 2.56 beats/s, final.json still {}): flutters in now and then, lands on the layout lines
+- ASCII butterfly (2026-11-27, LIVE; size 0.055, #585858, 2.56 beats/s, line to line, 2–4 landings of 5–12 s, flySpeed 0.16, final.json still {}): flutters in now and then, lands on the layout lines
   (side-r / people-l / foot-t), rests opening/closing its wings, leaves; catchable (lobby
   action `gull`, types bf-spawn / bf-hit / bf-caught). `src/ascii/scenes/butterfly.ts`,
   `src/components/AsciiButterfly.tsx`. vault/Decisions/024.
