@@ -150,7 +150,7 @@ Discord/
   (side-r / people-l / foot-t), rests opening/closing its wings, leaves; catchable (lobby
   action `gull`, types bf-spawn / bf-hit / bf-caught). `src/ascii/scenes/butterfly.ts`,
   `src/components/AsciiButterfly.tsx`. vault/Decisions/024.
-- Points shop (2026-11-27, local): points can be spent. "shut" (volume popup in a voice room,
+- Points shop (2026-11-27, LIVE): points can be spent. "shut" (volume popup in a voice room,
   10 points) = target's mic forced off 1 min (stacks; localStorage `sesli-sohbet:shut:<srv>`),
   notice with countdown bottom-right for everyone. Lobby action `gull`, type `shut` {id, uid}.
   vault/Decisions/025.
