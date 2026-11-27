@@ -829,6 +829,94 @@ pre.logo {
   padding: 18px 16px;
   border-left: 1px solid var(--line);
   overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+/* points shop: "Purchase" at the bottom of the online list, panel opens above it */
+.shop {
+  position: relative;
+  margin-top: auto;
+  padding-top: 16px;
+}
+
+.shop-btn {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  background: none;
+  color: var(--text);
+  border: 1px solid var(--line-2);
+  padding: 8px 10px;
+  font-size: 13px;
+}
+
+.shop-btn:hover,
+.shop-btn.open {
+  border-color: var(--strong);
+}
+
+.shop-btn .cost,
+.shop-item .cost {
+  color: var(--muted);
+}
+
+.shop-popup {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(100% + 6px);
+  z-index: 5;
+  background: var(--bg);
+  border: 1px solid var(--line-2);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.shop-head {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.shop-head b {
+  color: var(--strong);
+  font-weight: 500;
+}
+
+.shop-item {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 2px 8px;
+  text-align: left;
+  background: none;
+  color: var(--text);
+  border: 1px solid var(--line-2);
+  padding: 6px 8px;
+  font-size: 12px;
+}
+
+button.shop-item:hover:not(:disabled) {
+  border-color: var(--strong);
+}
+
+button.shop-item:disabled {
+  opacity: 0.4;
+}
+
+.shop-item.info {
+  border-style: dashed;
+}
+
+.shop-item small {
+  grid-column: 1 / -1;
+  color: var(--muted);
+  font-size: 11px;
 }
 
 .people h2 {
@@ -1176,7 +1264,7 @@ pre.logo {
 .mini-dock {
   position: fixed;
   right: 16px;
-  bottom: 16px;
+  bottom: 64px; /* above the "Purchase" button */
   z-index: 30;
   width: min(360px, calc(100vw - 32px));
   display: flex;

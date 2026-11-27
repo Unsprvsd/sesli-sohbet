@@ -202,7 +202,12 @@ export type Gull = {
   wp: number // index of the next waypoint
   path: Path | null
   pose: Pose
+  /** decoration only (a flock bought in the shop): can't be caught */
+  free: boolean
 }
+
+/** How many gulls a bought flock has, and how far apart they enter (screen widths). */
+export const FLOCK = { count: [6, 10] as P2, lag: [0.035, 0.07] as P2 }
 
 export type Wave = { x: number; y: number; age: number; label: string }
 
@@ -245,13 +250,19 @@ export class SeagullFlock {
     this.onSpawn?.(id, seed)
   }
 
-  /** Adds a gull from its id + seed (same seed -> same flight everywhere). */
-  addGull(id: string, seed: number) {
+  /**
+   * Adds a gull from its id + seed (same seed -> same flight everywhere).
+   * opt.free = can't be caught; opt.heading = force the side; opt.lag = start this far
+   * behind the screen edge (screen widths), so flock gulls come one after another.
+   */
+  addGull(id: string, seed: number, opt: { free?: boolean; heading?: 1 | -1; lag?: number } = {}) {
     if (this.has(id)) return
     const F = SETTINGS.flight, R = SETTINGS.render
     const rnd = seededRandom(seed)
     const r = (a: number, b: number) => a + rnd() * (b - a)
-    const heading = rnd() < 0.5 ? 1 : -1
+    const side: 1 | -1 = rnd() < 0.5 ? 1 : -1
+    const heading = opt.heading ?? side
+    const lag = opt.lag ?? 0
     const m = this.margin()
     const v = r(R.viewYaw[0], R.viewYaw[1])
 
@@ -274,7 +285,7 @@ export class SeagullFlock {
 
     this.gulls.push({
       id, rnd,
-      x: heading > 0 ? -m : 1 + m,
+      x: heading > 0 ? -m - lag : 1 + m + lag,
       y: entryY,
       vx: heading * F.move.level[0], vy: 0,
       heading,
@@ -287,7 +298,24 @@ export class SeagullFlock {
       route, wp: 0,
       path: null,
       pose: SHEETS.level.pose(0),
+      free: !!opt.free,
     })
+  }
+
+  /**
+   * A flock (bought in the shop): 6–10 gulls from the same side, one after another,
+   * each on its own route. Can't be caught. Same id + seed -> same flock everywhere.
+   */
+  addFlock(id: string, seed: number) {
+    const rnd = seededRandom(seed)
+    const r = (a: number, b: number) => a + rnd() * (b - a)
+    const heading: 1 | -1 = rnd() < 0.5 ? 1 : -1
+    const n = Math.round(r(FLOCK.count[0], FLOCK.count[1]))
+    let lag = 0
+    for (let i = 0; i < n; i++) {
+      this.addGull(`${id}-${i}`, Math.floor(rnd() * 4294967296), { free: true, heading, lag })
+      lag += r(FLOCK.lag[0], FLOCK.lag[1])
+    }
   }
 
   remove(id: string) {
@@ -438,7 +466,7 @@ export class SeagullFlock {
   update(dt: number) {
     const F = SETTINGS.flight
 
-    if (this.leader && this.gulls.length < F.maxGulls) {
+    if (this.leader && this.gulls.filter((g) => !g.free).length < F.maxGulls) {
       this.nextSpawn -= dt
       if (this.nextSpawn <= 0) {
         this.spawnNew()
@@ -465,6 +493,7 @@ export class SeagullFlock {
   hitTest(px: number, py: number, s: ScreenSize): Gull | null {
     const r = SETTINGS.render.size * s.w * SETTINGS.catch.hitRadius
     for (const g of this.gulls) {
+      if (g.free) continue // shop flock: only to watch
       if (Math.hypot(px - g.x * s.w, py - g.y * s.h) <= r) return g
     }
     return null

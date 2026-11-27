@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, type MutableRefObject } from 'react'
 import { GullScreen, SeagullFlock, type Wave } from '../seagull'
 import type { GullListener, GullMsg } from '../lobby'
 
@@ -11,6 +11,8 @@ type Props = {
   nameOf: (uid: string) => string
   /** Someone (maybe me) caught a gull. */
   onCaught: (uid: string) => void
+  /** Filled in here: play a bought flock on my own screen (id + seed). */
+  releaseRef?: MutableRefObject<((id: string, seed: number) => void) | null>
 }
 
 /**
@@ -19,7 +21,7 @@ type Props = {
  * Clicking a gull -> "hit" -> the leader sends "caught" -> wave + score.
  * Look / motion / settings: src/seagull/shape.ts, sheets.ts, settings.ts.
  */
-export default function AsciiSeagulls({ selfId, isLeader, sendGull, onGull, nameOf, onCaught }: Props) {
+export default function AsciiSeagulls({ selfId, isLeader, sendGull, onGull, nameOf, onCaught, releaseRef }: Props) {
   const ref = useRef<HTMLCanvasElement>(null)
   const flockRef = useRef<SeagullFlock | null>(null)
   if (!flockRef.current) flockRef.current = new SeagullFlock()
@@ -48,6 +50,15 @@ export default function AsciiSeagulls({ selfId, isLeader, sendGull, onGull, name
     L.onCaught(uid)
   }
 
+  // a bought flock (shop): I bought it -> releaseRef, someone else -> 'flock' message
+  useEffect(() => {
+    if (!releaseRef) return
+    releaseRef.current = (id, seed) => flock.addFlock(id, seed)
+    return () => {
+      releaseRef.current = null
+    }
+  }, [releaseRef, flock])
+
   // leader role: spawn gulls and tell everyone
   useEffect(() => {
     const wasLeader = flock.leader
@@ -63,6 +74,8 @@ export default function AsciiSeagulls({ selfId, isLeader, sendGull, onGull, name
         const L = live.current
         if (msg.t === 'spawn') {
           if (!caughtRef.current.has(msg.id)) flock.addGull(msg.id, msg.seed)
+        } else if (msg.t === 'flock') {
+          flock.addFlock(msg.id, msg.seed)
         } else if (msg.t === 'hit') {
           // only the leader decides; the first hit wins
           if (!L.isLeader || caughtRef.current.has(msg.id)) return

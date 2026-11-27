@@ -33,6 +33,7 @@ import ScreenView from './ScreenView'
 import Settings from './Settings'
 import UserName from './UserName'
 import RoomMembers from './RoomMembers'
+import Shop from './Shop'
 
 type Props = {
   name: string
@@ -54,6 +55,8 @@ const ENTER_DELAY_MS = 900
 // Points shop: "shut" closes someone's mic for a minute.
 const SHUT_COST = 10
 const SHUT_MS = 60_000
+// Points shop: a flock of seagulls that only flies over everyone's screen.
+const FLOCK_COST = 3
 
 /** 61_000 ms -> "1:01" */
 const clock = (ms: number) => {
@@ -208,6 +211,18 @@ export default function Lobby({ name, serverName, srv, password, onLogout, onFai
       }),
     [onGull, applyShut],
   )
+  // --- points shop: seagull flock ----------------------------------------
+  // I pay FLOCK_COST -> 'flock' message (id + seed) to everyone + play it here too.
+  const releaseFlockRef = useRef<((id: string, seed: number) => void) | null>(null)
+  const buyFlock = () => {
+    if (gullScore < FLOCK_COST) return
+    const id = 'f' + Math.random().toString(36).slice(2, 10)
+    const seed = Math.floor(Math.random() * 4294967296)
+    addScore(-FLOCK_COST)
+    sendGull({ t: 'flock', id, seed })
+    releaseFlockRef.current?.(id, seed)
+  }
+
   const shutSomeone = (uid: string) => {
     if (gullScore < SHUT_COST || !uid || uid === selfId) return
     const id = 'x' + Math.random().toString(36).slice(2, 10)
@@ -657,6 +672,7 @@ export default function Lobby({ name, serverName, srv, password, onLogout, onFai
         onGull={onGull}
         nameOf={nameOf}
         onCaught={onGullCaught}
+        releaseRef={releaseFlockRef}
       />
       <AsciiSpider
         selfId={selfId}
@@ -957,6 +973,7 @@ export default function Lobby({ name, serverName, srv, password, onLogout, onFai
             </li>
           ))}
         </ul>
+        <Shop points={gullScore} flockCost={FLOCK_COST} shutCost={SHUT_COST} onFlock={buyFlock} />
       </aside>
 
       {/* bottom-right: "shut" notices, then small screen windows (stacked) */}
