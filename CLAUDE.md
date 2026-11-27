@@ -158,6 +158,9 @@ Discord/
   Seagull flock (2 points): 6–10 `free` (not catchable) gulls fly over everyone's screen
   (lobby `gull` type `flock` {id, seed}, `SeagullFlock.addFlock`). `src/components/Shop.tsx`.
   vault/Decisions/026.
+- Animals (gulls, spider, butterfly) fly IN FRONT of everything (canvas z-index 40, clicks
+  pass through); a click on an animal catches only it (one animal per click), the button under
+  it needs a new click. Catch rings radius 0.1 (was 0.2). LIVE 2026-11-27. vault/Decisions/027.
 - Rule: test big changes on localhost BEFORE pushing — friends use the live site.
 - Speaking state is self-reported through lobby presence (no peer-id mapping
   between lobby and voice rooms needed).
