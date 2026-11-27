@@ -56,7 +56,7 @@ const ENTER_DELAY_MS = 900
 const SHUT_COST = 10
 const SHUT_MS = 60_000
 // Points shop: a flock of seagulls that only flies over everyone's screen.
-const FLOCK_COST = 3
+const FLOCK_COST = 2
 
 /** 61_000 ms -> "1:01" */
 const clock = (ms: number) => {
