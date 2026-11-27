@@ -31,17 +31,17 @@ export const BUTTERFLY = {
   spots: true, // a dark spot on each fore wing
   antennae: 1.2, // antenna thickness (px on the hidden canvas, 0 = none)
   // ---- flying ----
-  flySpeed: 0.13, // screen heights per second
+  flySpeed: 0.16, // screen heights per second
   flapHz: 2.56, // wing beats per second while flying
   minOpen: 0.15, // how far the wings close on a beat (0 = fully, 1 = never)
   bob: 0.25, // body bobs up with each beat (part of the wingspan)
   wobble: 0.9, // how wavy the path is (radians)
   turn: 4, // how fast it turns (radians / s)
   tilt: 25, // body tilts to the side it flies to (degrees)
-  freePoints: [1, 2] as P2, // free points before each landing
+  freePoints: [0, 0] as P2, // free points before each landing
   // ---- landing ----
-  landings: [1, 3] as P2, // how many times it lands on the way
-  rest: [3, 8] as P2, // seconds it sits on a line
+  landings: [2, 4] as P2, // how many times it lands on the way
+  rest: [5, 12] as P2, // seconds it sits on a line
   restPeriod: 2.6, // seconds for one slow open + close while sitting
   restMin: 0.1, // sitting: how far the wings close (0 = fully)
   // ---- game (app) ----
