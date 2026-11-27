@@ -19,7 +19,7 @@ type P2 = [number, number]
 
 export const BUTTERFLY = {
   // ---- look ----
-  size: 0.043, // wingspan, part of the screen height
+  size: 0.055, // wingspan, part of the screen height
   fontSize: 7, // letter size (smaller = finer wings)
   lineHeight: 1.15,
   color: '#585858', // letter colour
