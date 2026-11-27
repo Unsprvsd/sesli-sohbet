@@ -19,10 +19,10 @@ type P2 = [number, number]
 
 export const BUTTERFLY = {
   // ---- look ----
-  size: 0.038, // wingspan, part of the screen height
+  size: 0.032, // wingspan, part of the screen height
   fontSize: 7, // letter size (smaller = finer wings)
   lineHeight: 1.15,
-  color: '#686868', // letter colour (spider -15%)
+  color: '#585858', // letter colour
   letters: LETTER_SETS.symbols, // letters it may use
   contrast: 1.8, // sharper letter edges (1 = off)
   minInk: 0.06, // less ink than this = empty cell
@@ -32,7 +32,7 @@ export const BUTTERFLY = {
   antennae: 1.2, // antenna thickness (px on the hidden canvas, 0 = none)
   // ---- flying ----
   flySpeed: 0.13, // screen heights per second
-  flapHz: 3.2, // wing beats per second while flying
+  flapHz: 2.56, // wing beats per second while flying
   minOpen: 0.15, // how far the wings close on a beat (0 = fully, 1 = never)
   bob: 0.25, // body bobs up with each beat (part of the wingspan)
   wobble: 0.9, // how wavy the path is (radians)
