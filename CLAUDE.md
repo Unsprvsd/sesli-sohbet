@@ -154,7 +154,7 @@ Discord/
   10 points) = target's mic forced off 1 min (stacks; localStorage `sesli-sohbet:shut:<srv>`),
   notice with countdown bottom-right for everyone. Lobby action `gull`, type `shut` {id, uid}.
   vault/Decisions/025.
-- Shop (2026-11-27, LIVE): "Purchase" button at the bottom of the online list → panel.
+- Shop (2026-11-27, LIVE; renamed "$ spend" locally): "Purchase" button at the bottom of the online list → panel.
   Seagull flock (2 points): 6–10 `free` (not catchable) gulls fly over everyone's screen
   (lobby `gull` type `flock` {id, seed}, `SeagullFlock.addFlock`). `src/components/Shop.tsx`.
   vault/Decisions/026.

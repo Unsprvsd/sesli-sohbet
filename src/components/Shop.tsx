@@ -10,7 +10,7 @@ type Props = {
 }
 
 /**
- * Points shop: "Purchase" button at the bottom of the online list (bottom right).
+ * Points shop: "$ spend" button at the bottom of the online list (bottom right).
  * Click -> a small panel opens above it with what points can buy.
  * ("shut" is not here: it is in the volume popup of a voice room.)
  */
@@ -39,9 +39,9 @@ export default function Shop(p: Props) {
   return (
     <div className="shop" ref={ref}>
       {open && (
-        <div className="shop-popup" role="dialog" aria-label="Shop">
+        <div className="shop-popup" role="dialog" aria-label="Spend points">
           <div className="shop-head">
-            <span>shop</span>
+            <span>spend</span>
             <b>~v~ {p.points}</b>
           </div>
           <button
@@ -68,7 +68,7 @@ export default function Shop(p: Props) {
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
       >
-        <span>Purchase</span>
+        <span>$ spend</span>
         <span className="cost">~v~ {p.points}</span>
       </button>
     </div>

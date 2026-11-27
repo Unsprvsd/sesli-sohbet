@@ -833,7 +833,7 @@ pre.logo {
   flex-direction: column;
 }
 
-/* points shop: "Purchase" at the bottom of the online list, panel opens above it */
+/* points shop: "$ spend" at the bottom of the online list, panel opens above it */
 .shop {
   position: relative;
   margin-top: auto;
@@ -1268,7 +1268,7 @@ button.shop-item:disabled {
 .mini-dock {
   position: fixed;
   right: 16px;
-  bottom: 64px; /* above the "Purchase" button */
+  bottom: 64px; /* above the "$ spend" button */
   z-index: 30;
   width: min(360px, calc(100vw - 32px));
   display: flex;
