@@ -56,7 +56,7 @@ export const SETTINGS = {
       duration: 1.8, // seconds
       rings: 3,
       ringDelay: 0.18, // seconds between rings
-      radius: 0.2, // final ring size, part of the screen width
+      radius: 0.1, // final ring size, part of the screen width (was 0.2, user: -50%)
       band: 14, // ring thickness in px
       color: '#8a8a8a',
     },

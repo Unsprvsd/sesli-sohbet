@@ -459,7 +459,10 @@ pre.logo {
   min-height: 100vh;
 }
 
-/* faint ASCII background effects behind the server screen (glow lines, seagulls) */
+/* faint ASCII effects on the server screen: glow lines behind everything,
+   the animals (seagulls, spider, butterfly) IN FRONT of everything (buttons,
+   panels, notices, dialog). Clicks pass through the canvas; a click on an animal
+   is caught by its own window listener (catch first, the button needs a new click). */
 .ascii-stream,
 .ascii-gulls,
 .ascii-spider,
@@ -470,6 +473,12 @@ pre.logo {
   height: 100%;
   z-index: -1;
   pointer-events: none;
+}
+
+.ascii-gulls,
+.ascii-spider,
+.ascii-butterfly {
+  z-index: 40;
 }
 
 .sidebar {

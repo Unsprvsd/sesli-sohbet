@@ -110,7 +110,7 @@ export default function AsciiSeagulls({ selfId, isLeader, sendGull, onGull, name
       const g = flock.hitTest(e.clientX, e.clientY, { w, h })
       if (!g) return
       e.preventDefault() // no focus / text selection on what is underneath
-      e.stopPropagation()
+      e.stopImmediatePropagation() // also no other animal on the same click
       blockClickUntil = performance.now() + 700
       const L = live.current
       if (L.isLeader) {
@@ -128,7 +128,7 @@ export default function AsciiSeagulls({ selfId, isLeader, sendGull, onGull, name
       if (performance.now() > blockClickUntil) return
       blockClickUntil = 0
       e.preventDefault()
-      e.stopPropagation()
+      e.stopImmediatePropagation() // also no other animal on the same click
     }
 
     let raf = 0
