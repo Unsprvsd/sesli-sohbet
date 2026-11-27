@@ -51,6 +51,18 @@ const MAX_RETRIES = 3
 const FIND_TIMEOUT_MS = 45_000
 // How long the join log stays visible after the server is found.
 const ENTER_DELAY_MS = 900
+// Points shop: "shut" closes someone's mic for a minute.
+const SHUT_COST = 10
+const SHUT_MS = 60_000
+
+/** 61_000 ms -> "1:01" */
+const clock = (ms: number) => {
+  const s = Math.max(0, Math.ceil(ms / 1000))
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
+}
+
+/** A "shut" notice (bottom right): who is shut, who paid, until when. */
+type ShutNotice = { uid: string; name: string; by: string[]; until: number }
 
 // Shown in the middle when I'm not in a voice room.
 const IDLE_ART = String.raw`  ___________
@@ -110,21 +122,99 @@ export default function Lobby({ name, serverName, srv, password, onLogout, onFai
   // The "leader" (smallest user id online) spawns gulls and decides catches.
   const gullLeader = useMemo(() => rawUsers.map((u) => u.id).sort()[0] ?? '', [rawUsers])
   const nameOf = useCallback((uid: string) => rawUsers.find((u) => u.id === uid)?.name ?? '', [rawUsers])
-  const onGullCaught = useCallback(
-    (uid: string) => {
-      if (uid !== selfId) return
+  const addScore = useCallback(
+    (delta: number) =>
       setGullScore((s) => {
-        const next = s + 1
+        const next = Math.max(0, s + delta)
         try {
           localStorage.setItem(scoreKey, String(next))
         } catch {
           /* storage blocked: score lives only in this tab */
         }
         return next
-      })
-    },
-    [selfId, scoreKey],
+      }),
+    [scoreKey],
   )
+  const onGullCaught = useCallback(
+    (uid: string) => {
+      if (uid === selfId) addScore(1)
+    },
+    [selfId, addScore],
+  )
+
+  // --- points shop: shut ------------------------------------------------
+  // Someone pays SHUT_COST points -> lobby message 'shut' -> the target's own app
+  // turns their mic off for SHUT_MS (a second shut adds another minute). Everyone
+  // sees a notice with a countdown. Kept in localStorage, so reloading doesn't help.
+  const shutKey = `sesli-sohbet:shut:${srv}`
+  const [shutUntil, setShutUntil] = useState(() => {
+    try {
+      const v = Number(localStorage.getItem(shutKey)) || 0
+      return v > Date.now() ? v : 0
+    } catch {
+      return 0
+    }
+  })
+  const [notices, setNotices] = useState<ShutNotice[]>([])
+  const [now, setNow] = useState(() => Date.now())
+  const shutActive = shutUntil > now
+  const ticking = shutActive || notices.length > 0
+  useEffect(() => {
+    if (!ticking) return
+    setNow(Date.now())
+    const timer = setInterval(() => setNow(Date.now()), 500)
+    return () => clearInterval(timer)
+  }, [ticking])
+  // drop finished notices
+  useEffect(() => {
+    if (notices.some((n) => n.until <= now)) setNotices((list) => list.filter((n) => n.until > now))
+  }, [now, notices])
+
+  const seenShuts = useRef(new Set<string>())
+  const applyShut = useCallback(
+    (id: string, uid: string, byUid: string) => {
+      if (seenShuts.current.has(id)) return
+      const target = nameOf(uid)
+      if (!target) return // not on this server (or already gone)
+      seenShuts.current.add(id)
+      const by = byUid === selfId ? 'you' : nameOf(byUid) || '?'
+      const t = Date.now()
+      setNow(t)
+      setNotices((list) => {
+        const old = list.find((n) => n.uid === uid)
+        const until = Math.max(old?.until ?? 0, t) + SHUT_MS
+        const names = old?.by ?? []
+        const next: ShutNotice = { uid, name: target, by: names.includes(by) ? names : [...names, by], until }
+        return [...list.filter((n) => n.uid !== uid), next]
+      })
+      if (uid === selfId) {
+        setShutUntil((prev) => {
+          const until = Math.max(prev, t) + SHUT_MS
+          try {
+            localStorage.setItem(shutKey, String(until))
+          } catch {
+            /* storage blocked */
+          }
+          return until
+        })
+      }
+    },
+    [nameOf, selfId, shutKey],
+  )
+  useEffect(
+    () =>
+      onGull((msg, from) => {
+        if (msg.t === 'shut') applyShut(msg.id, msg.uid, from)
+      }),
+    [onGull, applyShut],
+  )
+  const shutSomeone = (uid: string) => {
+    if (gullScore < SHUT_COST || !uid || uid === selfId) return
+    const id = 'x' + Math.random().toString(36).slice(2, 10)
+    addScore(-SHUT_COST)
+    sendGull({ t: 'shut', id, uid })
+    applyShut(id, uid, selfId)
+  }
 
   const voiceRooms = config?.voice ?? []
   const textChannels = config?.text ?? []
@@ -273,8 +363,8 @@ export default function Lobby({ name, serverName, srv, password, onLogout, onFai
     }
   }, [pttEnabled, pttKey])
 
-  // Deafened also means mic off (like Discord).
-  const micMuted = muted || deafened
+  // Deafened also means mic off (like Discord). Shut (points shop) too.
+  const micMuted = muted || deafened || shutActive
   const transmit = !micMuted && (!pttEnabled || pttDown)
 
   // --- voice ------------------------------------------------------------
@@ -647,6 +737,9 @@ export default function Lobby({ name, serverName, srv, password, onLogout, onFai
                 onVolume={(n, v) => setVolumeByName((prev) => ({ ...prev, [n]: v }))}
                 watchUid={watchUid}
                 onWatch={setWatchUid}
+                shutCost={SHUT_COST}
+                myPoints={gullScore}
+                onShut={shutSomeone}
               />
             </div>
           )
@@ -693,10 +786,12 @@ export default function Lobby({ name, serverName, srv, password, onLogout, onFai
             <button
               className={`ctl ${micMuted ? 'off' : ''}`}
               onClick={() => setMuted((m) => !m)}
-              disabled={deafened}
-              title={micMuted ? 'Unmute' : 'Mute'}
+              disabled={deafened || shutActive}
+              title={
+                shutActive ? 'Someone spent points to shut your mic' : micMuted ? 'Unmute' : 'Mute'
+              }
             >
-              {micMuted ? 'Muted' : 'Mic'}
+              {shutActive ? `Shut ${clock(shutUntil - now)}` : micMuted ? 'Muted' : 'Mic'}
             </button>
             <button
               className={`ctl ${deafened ? 'off' : ''}`}
@@ -855,7 +950,7 @@ export default function Lobby({ name, serverName, srv, password, onLogout, onFai
               {u.admin ? <Crown /> : <span className="dot online" />}
               <UserName user={u} hideYou />
               {typeof u.score === 'number' && Number.isFinite(u.score) && u.score > 0 && (
-                <span className="score" title="Seagulls and spiders caught">
+                <span className="score" title="Points: seagulls, spiders and butterflies caught">
                   ~v~ {Math.min(99999, Math.floor(u.score))}
                 </span>
               )}
@@ -864,9 +959,22 @@ export default function Lobby({ name, serverName, srv, password, onLogout, onFai
         </ul>
       </aside>
 
-      {/* small screen windows, docked bottom-right (stacked when there are two) */}
-      {((previewView && previewMini) || (watchView && watchMini)) && (
+      {/* bottom-right: "shut" notices, then small screen windows (stacked) */}
+      {((previewView && previewMini) || (watchView && watchMini) || notices.length > 0) && (
         <div className="mini-dock">
+          {notices.map((n) => (
+            <div key={n.uid} className="toast" role="status">
+              <div className="toast-head">
+                <span>
+                  <b>{n.uid === selfId ? 'you' : n.name}</b> {n.uid === selfId ? 'are' : 'is'} muted
+                </span>
+                <span className="toast-timer">{clock(n.until - now)}</span>
+              </div>
+              <small>
+                shut by {n.by.join(', ')} · ~v~ {SHUT_COST}
+              </small>
+            </div>
+          ))}
           {watchView && watchMini && watchView}
           {previewView && previewMini && previewView}
         </div>

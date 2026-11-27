@@ -10,6 +10,10 @@ type Props = {
   onVolume: (name: string, value: number) => void
   watchUid: string | null
   onWatch: (uid: string | null) => void
+  /** Points shop: "shut" closes this person's mic for a minute. */
+  shutCost: number
+  myPoints: number
+  onShut: (uid: string) => void
 }
 
 /**
@@ -100,6 +104,22 @@ export default function RoomMembers(p: Props) {
                     Reset
                   </button>
                 </div>
+                <button
+                  className="shut-btn"
+                  disabled={p.myPoints < p.shutCost}
+                  title={
+                    p.myPoints < p.shutCost
+                      ? `You need ${p.shutCost} points (you have ${p.myPoints})`
+                      : `Spend ${p.shutCost} points: ${u.name}'s mic is off for 1 minute`
+                  }
+                  onClick={() => {
+                    p.onShut(u.id)
+                    setOpenId(null)
+                  }}
+                >
+                  <span>shut</span>
+                  <span className="cost">~v~ {p.shutCost}</span>
+                </button>
               </div>
             )}
           </li>

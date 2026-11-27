@@ -32,11 +32,13 @@ export type Presence = {
  * sp-spawn / sp-hit / sp-caught - the same for the ASCII spider (older app
  * versions don't know these and simply ignore them)
  * bf-spawn / bf-hit / bf-caught - the same for the ASCII butterfly
+ * shut   - someone spent points to shut `uid`'s mic for a minute (sender = who paid)
  */
 export type GullMsg =
   | { t: 'spawn' | 'sp-spawn' | 'bf-spawn'; id: string; seed: number }
   | { t: 'hit' | 'sp-hit' | 'bf-hit'; id: string; x: number; y: number }
   | { t: 'caught' | 'sp-caught' | 'bf-caught'; id: string; uid: string; x: number; y: number }
+  | { t: 'shut'; id: string; uid: string }
 
 export type GullListener = (msg: GullMsg, fromUserId: string) => void
 
@@ -47,6 +49,7 @@ function isGullMsg(m: unknown): m is GullMsg {
   const num = (v: unknown) => typeof v === 'number' && Number.isFinite(v)
   if (x.t === 'spawn' || x.t === 'sp-spawn' || x.t === 'bf-spawn') return num(x.seed)
   if (x.t === 'hit' || x.t === 'sp-hit' || x.t === 'bf-hit') return num(x.x) && num(x.y)
+  if (x.t === 'shut') return typeof x.uid === 'string' && x.uid.length <= 128
   if (x.t === 'caught' || x.t === 'sp-caught' || x.t === 'bf-caught') return typeof x.uid === 'string' && x.uid.length <= 128 && num(x.x) && num(x.y)
   return false
 }

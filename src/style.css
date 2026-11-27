@@ -983,6 +983,62 @@ pre.logo {
   opacity: 0.4;
 }
 
+.shut-btn {
+  display: flex;
+  justify-content: space-between;
+  background: none;
+  color: var(--text);
+  border: 1px solid var(--line-2);
+  padding: 4px 8px;
+  font-size: 12px;
+}
+
+.shut-btn:hover:not(:disabled) {
+  border-color: var(--strong);
+}
+
+.shut-btn:disabled {
+  opacity: 0.4;
+}
+
+.shut-btn .cost {
+  color: var(--muted);
+}
+
+/* "shut" notice, bottom right (inside .mini-dock) */
+.toast {
+  background: var(--bg);
+  border: 1px solid var(--line-2);
+  border-left: 3px solid var(--strong);
+  padding: 8px 12px;
+  font-size: 13px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  animation: appear 0.15s both;
+}
+
+.toast-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.toast-head b {
+  color: var(--strong);
+  font-weight: 600;
+}
+
+.toast-timer {
+  color: var(--strong);
+  font-variant-numeric: tabular-nums;
+}
+
+.toast small {
+  color: var(--muted);
+  font-size: 11px;
+}
+
 .ptt-button {
   background: none;
   color: var(--text);
