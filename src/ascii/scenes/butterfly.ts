@@ -19,14 +19,14 @@ type P2 = [number, number]
 
 export const BUTTERFLY = {
   // ---- look ----
-  size: 0.06, // wingspan, part of the screen height
+  size: 0.045, // wingspan, part of the screen height
   fontSize: 7, // letter size (smaller = finer wings)
   lineHeight: 1.15,
-  color: '#9a9a9a', // letter colour
+  color: '#7a7a7a', // letter colour (same as the spider)
   letters: LETTER_SETS.symbols, // letters it may use
   contrast: 1.8, // sharper letter edges (1 = off)
   minInk: 0.06, // less ink than this = empty cell
-  wingInk: 0.8, // fore wing brightness 0..1
+  wingInk: 0.75, // fore wing brightness 0..1
   hindInk: 0.6, // hind wing brightness 0..1
   spots: true, // a dark spot on each fore wing
   antennae: 1.2, // antenna thickness (px on the hidden canvas, 0 = none)
