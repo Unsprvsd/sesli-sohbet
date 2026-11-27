@@ -54,11 +54,9 @@ export function Birds() {
   return (
     <svg className="birds" viewBox="0 0 40 40" aria-hidden="true">
       <circle cx="20" cy="20" r="18.5" className="birds-ring" />
-      <g transform="translate(20 20) scale(0.88) translate(-20 -20)">
-        <path d={BIRD} transform="translate(7 11)" />
-        <path d={BIRD} transform="translate(22 20) rotate(-30) scale(0.82)" />
-        <path d={BIRD} transform="translate(9 29) rotate(-25) scale(0.8)" />
-      </g>
+      <path d={BIRD} transform="translate(7 11)" />
+      <path d={BIRD} transform="translate(21 21) rotate(-30) scale(0.85)" />
+      <path d={BIRD} transform="translate(6 30) rotate(-25) scale(0.8)" />
     </svg>
   )
 }
