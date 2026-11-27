@@ -45,3 +45,12 @@ export function Meter({ on }: { on: boolean }) {
     </span>
   )
 }
+
+/** Three seagulls (shop: seagull flock). White lines, take the text colour. */
+export function Birds() {
+  return (
+    <svg className="birds" viewBox="0 0 28 14" aria-hidden="true">
+      <path d="M1 9q2.5-3.5 5 0q2.5-3.5 5 0M12 5q2-2.8 4 0q2-2.8 4 0M19.8 10q1.6-2.2 3.2 0q1.6-2.2 3.2 0" />
+    </svg>
+  )
+}

@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
+import { Birds } from './Bits'
 
 type Props = {
   /** my points (caught gulls / spiders / butterflies) */
   points: number
   flockCost: number
-  shutCost: number
   /** buy a seagull flock (only to watch, flies over everyone's screen) */
   onFlock: () => void
 }
@@ -12,7 +12,7 @@ type Props = {
 /**
  * Points shop: "Purchase" button at the bottom of the online list (bottom right).
  * Click -> a small panel opens above it with what points can buy.
- * "shut" is used in a voice room (click a friend), so here it is only explained.
+ * ("shut" is not here: it is in the volume popup of a voice room.)
  */
 export default function Shop(p: Props) {
   const [open, setOpen] = useState(false)
@@ -47,21 +47,20 @@ export default function Shop(p: Props) {
           <button
             className="shop-item"
             disabled={poor}
-            title={poor ? `You need ${p.flockCost} points (you have ${p.points})` : undefined}
+            aria-label="seagull flock"
+            title={
+              poor
+                ? `seagull flock: you need ${p.flockCost} points (you have ${p.points})`
+                : 'seagull flock: flies over everyone\'s screen'
+            }
             onClick={() => {
               p.onFlock()
               setOpen(false)
             }}
           >
-            <span>seagull flock</span>
+            <Birds />
             <span className="cost">~v~ {p.flockCost}</span>
-            <small>a flock flies over everyone's screen, only to watch</small>
           </button>
-          <div className="shop-item info">
-            <span>shut</span>
-            <span className="cost">~v~ {p.shutCost}</span>
-            <small>mic off for 1 min: in a voice room, click a friend</small>
-          </div>
         </div>
       )}
       <button

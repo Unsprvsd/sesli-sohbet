@@ -973,7 +973,7 @@ export default function Lobby({ name, serverName, srv, password, onLogout, onFai
             </li>
           ))}
         </ul>
-        <Shop points={gullScore} flockCost={FLOCK_COST} shutCost={SHUT_COST} onFlock={buyFlock} />
+        <Shop points={gullScore} flockCost={FLOCK_COST} onFlock={buyFlock} />
       </aside>
 
       {/* bottom-right: "shut" notices, then small screen windows (stacked) */}
