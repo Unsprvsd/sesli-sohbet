@@ -16,6 +16,7 @@ import { useSameDeviceTabs } from '../sameDevice'
 import AsciiStream from './AsciiStream'
 import AsciiSeagulls from './AsciiSeagulls'
 import AsciiSpider from './AsciiSpider'
+import AsciiButterfly from './AsciiButterfly'
 import { keyLabel, useSetting } from '../settings'
 import {
   DEFAULT_SCREEN_QUALITY,
@@ -568,6 +569,14 @@ export default function Lobby({ name, serverName, srv, password, onLogout, onFai
         onCaught={onGullCaught}
       />
       <AsciiSpider
+        selfId={selfId}
+        isLeader={!!selfId && gullLeader === selfId}
+        sendGull={sendGull}
+        onGull={onGull}
+        nameOf={nameOf}
+        onCaught={onGullCaught}
+      />
+      <AsciiButterfly
         selfId={selfId}
         isLeader={!!selfId && gullLeader === selfId}
         sendGull={sendGull}

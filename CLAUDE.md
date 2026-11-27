@@ -146,6 +146,10 @@ Discord/
   .people left edge, .sidebar-foot top) now and then, same for everyone (lobby action
   `gull`, types sp-spawn / sp-hit / sp-caught), click = +1 on the gull score.
   `src/ascii/scenes/spider.ts`, `src/components/AsciiSpider.tsx`. vault/Decisions/023.
+- ASCII butterfly (2026-11-27, local): flutters in now and then, lands on the layout lines
+  (side-r / people-l / foot-t), rests opening/closing its wings, leaves; catchable (lobby
+  action `gull`, types bf-spawn / bf-hit / bf-caught). `src/ascii/scenes/butterfly.ts`,
+  `src/components/AsciiButterfly.tsx`. vault/Decisions/024.
 - Rule: test big changes on localhost BEFORE pushing — friends use the live site.
 - Speaking state is self-reported through lobby presence (no peer-id mapping
   between lobby and voice rooms needed).

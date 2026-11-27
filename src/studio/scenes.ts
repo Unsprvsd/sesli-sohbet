@@ -7,6 +7,7 @@ import { LETTER_SETS } from '../ascii/shapeAscii'
 import { PLASMA, startPlasma } from '../ascii/scenes/plasma'
 import { GLOW, startGlow } from '../ascii/scenes/glow'
 import { SPIDER, startSpider } from '../ascii/scenes/spider'
+import { BUTTERFLY, startButterfly } from '../ascii/scenes/butterfly'
 import { SETTINGS as GULL, SeagullFlock, GullScreen } from '../seagull'
 
 export type Mounted = { stop: () => void; actions?: Record<string, () => void> }
@@ -29,6 +30,49 @@ const pair = (key: string, label: string, min: number, max: number, step: number
 const color = (key: string, label: string, hint?: string): Knob => ({ key, label, kind: 'color', hint })
 
 export const SCENES: Scene[] = [
+  {
+    id: 'butterfly',
+    name: 'butterfly',
+    where: 'server screen: now and then flutters over the screen and lands on the layout lines; click = catch (+1, gull score)',
+    note: 'The grey lines stand for the app layout. It lands on them, rests, slowly opens / closes its wings, then flies on. Click it to catch it.',
+    settings: BUTTERFLY,
+    knobs: [
+      n('size', 'size (wingspan)', 0.015, 0.15, 0.001, 'part of the screen height'),
+      n('flySpeed', 'fly speed', 0.01, 0.4, 0.005, 'screen heights per second'),
+      n('flapHz', 'wing beats / s', 0.5, 12, 0.1),
+      n('minOpen', 'wings close to', 0, 1, 0.01, 'on each beat; 0 = fully closed'),
+      n('bob', 'bob with beats', 0, 1, 0.01, 'part of the wingspan'),
+      n('wobble', 'wavy path', 0, 2, 0.05, 'radians'),
+      n('turn', 'turn speed', 0.5, 12, 0.1),
+      n('tilt', 'body tilt (deg)', 0, 60, 1),
+      pair('freePoints', 'free points', 0, 5, 1, 'before each landing'),
+      pair('landings', 'landings', 0, 6, 1),
+      pair('rest', 'sit time (s)', 0.5, 30, 0.5),
+      n('restPeriod', 'slow wing time (s)', 0.3, 8, 0.1, 'one open + close while sitting'),
+      n('restMin', 'sitting: wings close to', 0, 1, 0.01),
+      pair('firstSpawn', 'first butterfly after (s)', 5, 900, 5, 'app only'),
+      pair('spawnEvery', 'time between (s)', 10, 1800, 5, 'app only'),
+      n('hitRadius', 'hit size', 0.2, 2, 0.05, 'part of the wingspan around the body'),
+      n('wingInk', 'fore wing ink', 0.1, 1, 0.01),
+      n('hindInk', 'hind wing ink', 0.1, 1, 0.01),
+      { key: 'spots', label: 'wing spots', kind: 'bool' },
+      n('antennae', 'antennae', 0, 4, 0.1, '0 = none'),
+      color('color', 'colour'),
+      n('fontSize', 'letter size', 4, 20, 1, 'smaller = finer wings'),
+      { key: 'letters', label: 'letter set', kind: 'choice', options: { symbols: LETTER_SETS.symbols, mixed: LETTER_SETS.mixed, all: LETTER_SETS.all } },
+      n('contrast', 'edge contrast', 1, 4, 0.1),
+      n('minInk', 'min ink', 0, 0.4, 0.01),
+    ],
+    mount(canvas, stage) {
+      const mock = document.createElement('div')
+      mock.className = 'mock-layout'
+      mock.innerHTML =
+        '<div class="sidebar"><div class="sidebar-foot"></div></div><div class="people"></div>'
+      stage.appendChild(mock)
+      const run = startButterfly(canvas, { linesRoot: mock })
+      return { stop: () => { run.stop(); mock.remove() }, actions: { 'new butterfly': run.newButterfly } }
+    },
+  },
   {
     id: 'spider',
     name: 'spider',
